@@ -26,7 +26,7 @@ class JobStatus(enum.Enum):
 
 def docker_timestamp_to_seconds(s: str) -> float:
     # stupid shit... (just for the record - the year part won't parse with datetime, because the min year it supports
-    # if presumably 1970, definitely not 0001)
+    # is presumably 1970, definitely not 0001)
     if s == '0001-01-01T00:00:00Z':
         return 0
 

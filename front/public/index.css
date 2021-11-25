@@ -1,0 +1,45 @@
+.menu {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 100%;
+}
+
+.submit_form {
+    width: 600px;
+    margin: auto;
+    display: grid;
+    justify-content: center;
+    align-items: center;
+}
+
+.form_title {
+    text-align: center;
+    font-size: xx-large;
+}
+
+.form_error {
+    text-align: center;
+    color: red;
+    margin: 0;
+    margin-bottom: 10px;
+}
+
+.form_field {
+    display: grid;
+    margin-bottom: 10px;
+    text-align: left;
+    width: 300px; /* to make sure that error textbox doesn't resize when something happens */
+}
+
+.form_field label {
+    margin-bottom: 5px;
+}
+
+.form_submit {
+    text-align: center;
+}
+
+.form_submit button {
+    padding: 5px 15px;
+}
