@@ -27,7 +27,7 @@ def _dfs(node: Node, node_state: dict[Node, NodeState], result: list[Node]):
     result.append(node)
 
 
-T = TypeVar('T')
+T = TypeVar('T', bound=Node)
 
 
 def topological_sort(nodes: list[T]) -> list[T]:

@@ -22,6 +22,7 @@ class JobStatus(enum.Enum):
     NOT_FOUND = 4
     FINISHED = 5
     FAILED_TO_START = 6
+    CANCELLED = 7
 
 
 def docker_timestamp_to_seconds(s: str) -> float:
@@ -86,8 +87,21 @@ class Job:
             started_time = docker_timestamp_to_seconds(self.container.attrs['State']['StartedAt'])
             return finished_time - started_time
         else:
-            # not finished => running => we can use compare our time
+            # not finished => running => we can compare our times, which also in the same timezone
             return time.time() - self.host_start_time_secs
+
+    def cancel(self):
+        # TODO: maybe we'll need to update time here?
+
+        try:
+            self.container.kill()
+            self.status = JobStatus.CANCELLED
+            self.container.reload()
+        except docker.errors.APIError as e:
+            if e.status_code == 409:
+                logger.warning(f'Trying to cancel a container that is already finished. id={self.container.id}')
+            else:
+                raise
 
     def update(self):
         if self.status != JobStatus.RUNNING:
@@ -111,16 +125,12 @@ class Job:
             self.status = JobStatus.FINISHED
 
         if self.timeout_secs is not None and self.uptime() > self.timeout_secs:
-            self.status = JobStatus.TIMED_OUT
+            if self.status == JobStatus.FINISHED:
+                logger.warning('Container finished, but the total uptime is bigger than the allowed timeout')
 
-            try:
-                self.container.kill()
-                self.container.reload()
-            except docker.errors.APIError as e:
-                if e.status_code == 409:
-                    logger.warning('Container finished, but the total uptime is bigger than the allowed timeout')
-                else:
-                    raise
+            self.cancel()
+            # Overwriting `CANCELLED`
+            self.status = JobStatus.TIMED_OUT
 
 
 @dataclass
@@ -130,32 +140,34 @@ class Pipeline:
     initiator: str
 
 
-def compute_new_running_jobs(running: list[Job]) -> list[Job]:
+def do_step(running: list[Job]) -> list[Job]:
     new_running = []
 
     for job in running:
         job.update()
 
-        if job.container.status == 'exited':
+        if job.status == JobStatus.RUNNING:
+            new_running.append(job)
+        elif job.status == JobStatus.FINISHED and job.get_exit_code() == 0:
             for child in job.children:
                 print(f'Starting new job! name=[{child.name}]')
                 child.start()
                 new_running.append(child)
         else:
-            new_running.append(job)
+            print(f'Job failed! job=[{job}]')
 
     return new_running
 
 
 def run_pipeline(pipeline: list[Job]):
-    running = node.find_roots(pipeline)
+    running_jobs = node.find_roots(pipeline)
 
-    for job in running:
+    for job in running_jobs:
         print(f'Starting new job! name=[{job.name}]')
         job.start()
 
-    while running:
-        running = compute_new_running_jobs(running)
+    while running_jobs:
+        running_jobs = do_step(running_jobs)
         time.sleep(0.1)
 
     for job in pipeline:
@@ -172,29 +184,48 @@ jobs = dict()
 
 client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
 
-container = client.containers.create('ubuntu-test', ['/home/egork/Projects/py/fastci/failing_commands.sh'],
+container = client.containers.create('ubuntu-test', ['python3', '/home/egork/Projects/py/fastci/printer.py'],
                                      detach=True,
                                      volumes=['/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci'])
+job = Job('printer', container, None, [])
+job.start()
+i = 0
+
+while job.status == JobStatus.RUNNING:
+    i += 1
+    job.update()
+    print(i)
+
+    if i == 20:
+        job.cancel()
+
+    time.sleep(0.1)
+
+print(job)
+
+# container = client.containers.create('ubuntu-test', ['/home/egork/Projects/py/fastci/failing_commands.sh'],
+#                                      detach=True,
+#                                      volumes=['/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci'])
 # container = client.containers.create('ubuntu-test', ['cock and balls'],
 #                                      detach=True,
 #                                      volumes=['/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci'])
 # container = client.containers.create('ubuntu-test', ['python3', '/home/egork/Projects/py/fastci/delayed_printer.py'],
 #                                      detach=True,
 #                                      volumes=['/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci'])
-job = Job('job', container, None, [], timeout_secs=1.5)
+# job = Job('job', container, None, [], timeout_secs=1.5)
 
-job.start()
+# job.start()
 
-time.sleep(1.5)
-job.update()
-print('Status:', job.status)
-print('Error:', job.get_error())
-print('ExitCode:', job.get_exit_code())
-print('Uptime(secs):', job.uptime())
-print('Output:')
-print(job.get_output().decode('ascii'))
-print('Stderr:')
-print(job.get_output(stdout=False).decode('ascii'))
+# time.sleep(1.5)
+# job.update()
+# print('Status:', job.status)
+# print('Error:', job.get_error())
+# print('ExitCode:', job.get_exit_code())
+# print('Uptime(secs):', job.uptime())
+# print('Output:')
+# print(job.get_output().decode('ascii'))
+# print('Stderr:')
+# print(job.get_output(stdout=False).decode('ascii'))
 # job.container.reload()
 
 # writer_container = client.containers.create('ubuntu-test', ['/home/egork/Projects/py/fastci/writer_commands.sh'],
