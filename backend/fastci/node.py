@@ -30,7 +30,7 @@ def _dfs(node: Node, node_state: dict[Node, NodeState], result: list[Node]):
 T = TypeVar('T', bound=Node)
 
 
-def topological_sort(nodes: list[T]) -> list[T]:
+def topological_sort(nodes: list[T]) -> list[set[T]]:
     node_state = {node: NodeState.UNTOUCHED for node in nodes}
     result = []
 
@@ -38,7 +38,20 @@ def topological_sort(nodes: list[T]) -> list[T]:
         if node_state[node] == NodeState.UNTOUCHED:
             _dfs(node, node_state, result)
 
-    return list(reversed(result))
+    ordered = list(reversed(result))
+    node_depth = {node: 0 for node in nodes}
+    grouped_result = []
+
+    for node in ordered:
+        if node.parent is not None:
+            node_depth[node] = node_depth[node.parent] + 1
+
+        if len(grouped_result) == node_depth[node]:
+            grouped_result.append({node})
+        else:
+            grouped_result[node_depth[node]].add(node)
+
+    return grouped_result
 
 
 def find_roots(nodes: list[T]) -> list[T]:

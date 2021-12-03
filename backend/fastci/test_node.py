@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from node import topological_sort
+from .node import topological_sort
 
 
 @dataclass
@@ -32,11 +32,11 @@ def test_topsort():
     d = NamedNode('d', c, [])
     c.children.append(d)
 
-    nodes = [a, b, c, d, root]
+    e = NamedNode('e', None, [])
+
+    nodes = [e, a, b, c, d, root]
 
     sorted_nodes = topological_sort(nodes)
 
-    assert sorted_nodes.index(root) < sorted_nodes.index(a)
-    assert sorted_nodes.index(root) < sorted_nodes.index(b)
-    assert sorted_nodes.index(b) < sorted_nodes.index(c)
-    assert sorted_nodes.index(c) < sorted_nodes.index(d)
+    assert sorted_nodes == [{root, e}, {a, b}, {c}, {d}]
+
