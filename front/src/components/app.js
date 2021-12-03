@@ -1,24 +1,23 @@
 import React from 'react';
 import {
     BrowserRouter,
-    Routes,
-    Route,
     Link,
     Navigate,
+    Route,
+    Routes,
     useLocation,
     useNavigate
 } from 'react-router-dom';
 
 function Header() {
     let location = useLocation();
-    console.log('Header:', location);
 
     return (
         <div className='menu'>
             <Link to='/'>Main page</Link>
             <Link to='/pipeline_list'>Pipeline list</Link>
             <Link to='/job_list'>Job list</Link>
-            <Link to='/signout' state={{ from: location }}>Sign out</Link>
+            <Link to='/signout' state={{from: location}}>Sign out</Link>
         </div>
     );
 }
@@ -26,7 +25,7 @@ function Header() {
 let AuthContext = React.createContext(null);
 
 function AuthProvider(props) {
-    let { children } = props;
+    let {children} = props;
     let [user, setUser] = React.useState('');
 
     let signIn = (username, password) => {
@@ -47,7 +46,7 @@ function AuthProvider(props) {
         setUser('');
     }
 
-    let value = { user, signIn, signUp, signOut };
+    let value = {user, signIn, signUp, signOut};
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -57,7 +56,7 @@ function useAuth() {
 }
 
 function RequiresLogin(props) {
-    let { children } = props;
+    let {children} = props;
     let location = useLocation();
     let auth = useAuth();
     let isLoggedIn = auth.user !== '';
@@ -65,20 +64,22 @@ function RequiresLogin(props) {
     if (isLoggedIn) {
         return children;
     } else {
-        return <Navigate to='/login' state={{ from: location }} />
+        return <Navigate to='/login' state={{from: location}}/>
     }
 }
 
 function LoginPage() {
     const from = useLocation().state?.from || null;
+    console.log('Login from =', from);
     let navigate = useNavigate();
 
     let [username, setUsername] = React.useState('');
     let [password, setPassword] = React.useState('');
-    let initialMessage = (from === '/login') ? '\u200b' : 'You need to login to view this page!';
+    let initialMessage = (from === null || from.pathname === '/login') ? '\u200b'
+        : 'You need to login to view this page!';
     let [error, setError] = React.useState(initialMessage);
 
-    let { signIn } = useAuth();
+    let {signIn} = useAuth();
 
     const handle_submit = async (event) => {
         event.preventDefault();
@@ -94,10 +95,9 @@ function LoginPage() {
         }
 
         if (signIn(username, password)) {
-            navigate((from === null) ? '/' : from, { replace: true });
+            navigate((from === null) ? '/' : from, {replace: true});
         } else {
             setError('Incorrect username or password!');
-            return;
         }
     };
 
@@ -127,7 +127,7 @@ function LoginPage() {
                         <button type='submit'>Login</button>
                     </div>
                 </form>
-                <Link to='/register' state={(from === null) ? null : { from: from }}>Register</Link>
+                <Link to='/register' state={(from === null) ? null : {from: from}}>Register</Link>
             </div>
         </div>
     );
@@ -144,7 +144,7 @@ function RegisterPage() {
     let [confirmPassword, setConfirmPassword] = React.useState('');
     let [error, setError] = React.useState('\u200b');
 
-    let { signUp } = useAuth();
+    let {signUp} = useAuth();
 
     const handle_submit = async (event) => {
         event.preventDefault();
@@ -181,11 +181,10 @@ function RegisterPage() {
         }
 
         if (signUp(firstName, lastName, username, password)) {
-            navigate((from === null) ? '/' : from, { replace: true });
+            navigate((from === null) ? '/' : from, {replace: true});
         } else {
             // TODO: explain what went wrong
             setError('Registration failed!');
-            return;
         }
     };
 
@@ -239,7 +238,7 @@ function RegisterPage() {
                         <button type='submit'>Register</button>
                     </div>
                 </form>
-                <Link to='/login' state={(from === null) ? null : { from: from }}>Login</Link>
+                <Link to='/login' state={(from === null) ? null : {from: from}}>Login</Link>
             </div>
         </div>
     );
@@ -247,14 +246,13 @@ function RegisterPage() {
 
 function SignOutPage() {
     const from = useLocation().state?.from || null;
-    let { signOut } = useAuth();
-    console.log('SignOutPage from = ', from);
+    let {signOut} = useAuth();
 
     React.useEffect(() => {
         signOut();
     });
 
-    return <Navigate to='/login' state={(from === null) ? null : { from: from }} />
+    return <Navigate to='/login' state={(from === null) ? null : {from: from}}/>
 }
 
 function MainPage() {
@@ -292,14 +290,14 @@ export default function App() {
     return (
         <AuthProvider>
             <BrowserRouter>
-                <Header />
+                <Header/>
                 <Routes>
-                    <Route path='/' element={<MainPage />} />
-                    <Route path='/login' element={<LoginPage />} />
-                    <Route path='/register' element={<RegisterPage />} />
-                    <Route path='/signout' element={<SignOutPage />} />
-                    <Route path='/pipeline_list' element={<PipelineListPage />} />
-                    <Route path='/job_list' element={<JobListPage />} />
+                    <Route path='/' element={<MainPage/>}/>
+                    <Route path='/login' element={<LoginPage/>}/>
+                    <Route path='/register' element={<RegisterPage/>}/>
+                    <Route path='/signout' element={<SignOutPage/>}/>
+                    <Route path='/pipeline_list' element={<PipelineListPage/>}/>
+                    <Route path='/job_list' element={<JobListPage/>}/>
                 </Routes>
             </BrowserRouter>
         </AuthProvider>
