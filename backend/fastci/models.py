@@ -1,5 +1,6 @@
 from django.core.validators import RegexValidator
 from django.db import models
+from rest_framework import serializers
 
 
 class JobStatus(models.IntegerChoices):
@@ -76,3 +77,15 @@ class Job(models.Model):
         Returns: complete == was started and stopped running for any reason
         """
         return self.status not in (JobStatus.NOT_STARTED, JobStatus.RUNNING)
+
+
+class PipelineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pipeline
+        fields = ['id', 'name', 'status']
+
+
+class JobSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Job
+        fields = ['id', 'name', 'status', 'parents']
