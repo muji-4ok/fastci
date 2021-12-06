@@ -6,8 +6,32 @@ import {
     Route,
     Routes,
     useLocation,
-    useNavigate
+    useNavigate,
+    useParams
 } from 'react-router-dom';
+
+const JOB_NOT_STARTED = 0;
+const JOB_RUNNING = 1;
+const JOB_TIMED_OUT = 2;
+const JOB_DOCKER_ERROR = 3;
+const JOB_NOT_FOUND = 4;
+const JOB_FINISHED = 5;
+const JOB_FAILED_TO_START = 6;
+const JOB_CANCELLED = 7;
+const JOB_DEPENDENCY_FAILED = 8;
+
+const JOB_STATUS_DESCRIPTION = [
+    'Not started',
+    'Running',
+    'Timed out',
+    'Docker error',
+    'Not found',
+    'Finished',
+    'Failed to start',
+    'Cancelled',
+    'Dependency failed'
+];
+
 
 function Header() {
     let location = useLocation();
@@ -59,7 +83,8 @@ function RequiresLogin(props) {
     let {children} = props;
     let location = useLocation();
     let auth = useAuth();
-    let isLoggedIn = auth.user !== '';
+    // let isLoggedIn = auth.user !== '';
+    let isLoggedIn = true;
 
     if (isLoggedIn) {
         return children;
@@ -70,7 +95,6 @@ function RequiresLogin(props) {
 
 function LoginPage() {
     const from = useLocation().state?.from || null;
-    console.log('Login from =', from);
     let navigate = useNavigate();
 
     let [username, setUsername] = React.useState('');
@@ -276,29 +300,219 @@ function PipelineListPage() {
     );
 }
 
-function JobListPage() {
-    return (
-        <RequiresLogin>
-            <div>
-                <p>Job list (WIP)</p>
-            </div>
-        </RequiresLogin>
-    );
+function getStatusClass(job) {
+    if (job.status === JOB_NOT_STARTED) {
+        return 'not_started';
+    } else if (job.status === JOB_RUNNING) {
+        return 'running';
+    } else if (job.status === JOB_DOCKER_ERROR || job.status === JOB_FAILED_TO_START
+        || job.status === JOB_NOT_FOUND
+        || job.status === JOB_TIMED_OUT
+        || (job.status === JOB_FINISHED && job.exit_code !== 0)) {
+        return 'failed';
+    } else if (job.status === JOB_FINISHED) {
+        return 'succeded';
+    } else {
+        return 'cancelled';
+    }
 }
+
+class JobListPage extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {data: []};
+    }
+
+    async refreshList() {
+        const response = await fetch('http://localhost:8000/fastci/api/job_list');
+        const data = await response.json();
+        this.setState({data: data});
+    }
+
+    async componentDidMount() {
+        await this.refreshList()
+        this.interval = setInterval(async () => await this.refreshList(), 1000);
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.interval);
+    }
+
+    async updateJob(job_id) {
+        await fetch(`http://localhost:8000/fastci/api/update_job/${job_id}`);
+        await this.refreshList();
+    }
+
+    async cancelJob(job_id) {
+        await fetch(`http://localhost:8000/fastci/api/cancel_job/${job_id}`);
+        await this.refreshList();
+    }
+
+    makeJobElement(job, index) {
+        const status = JOB_STATUS_DESCRIPTION[job.status];
+        const statusClass = getStatusClass(job);
+
+        // TODO: make the buttons pretty
+        return (
+            <tr key={index}>
+                <td>
+                    <Link to={`/job/${job.id}`}>{job.id}</Link>
+                </td>
+                <td>
+                    <Link to={`/job/${job.id}`}>{job.name}</Link>
+                </td>
+                <td>{job.pipeline}</td>
+                <td className={statusClass}>{status}</td>
+                <td>{job.container_id}</td>
+                <td>{job.uptime_secs.toFixed(2)}</td>
+                <td>
+                    <button onClick={this.updateJob.bind(this, job.id)}>Update</button>
+                    <button onClick={this.cancelJob.bind(this, job.id)}>Cancel</button>
+                </td>
+            </tr>
+        );
+    }
+
+    render() {
+        // TODO: paging
+        // TODO: search
+        const elements = this.state.data.reverse().map(this.makeJobElement.bind(this));
+
+        // maybe remove container id?
+        return (
+            <RequiresLogin>
+                <table className="jobs_table">
+                    <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Name</th>
+                        <th>Pipeline</th>
+                        <th>Status</th>
+                        <th>Container id</th>
+                        <th>Uptime (in secs)</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {elements}
+                    </tbody>
+                </table>
+            </RequiresLogin>
+        );
+    }
+}
+
+// The react-router-dom v6 api is hooks only. Why does everything have to be 'functional'???
+function withRouter(Child) {
+    return (props) => {
+        const params = useParams();
+        return <Child {...props} params={params}/>;
+    }
+}
+
+class JobPage extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            id: this.props.params.job_id,
+            name: '',
+            pipeline: 0,
+            container_id: '',
+            timeout_secs: null,
+            uptime_secs: 0,
+            // remove parents?
+            parents: [],
+            status: 0,
+            error: '',
+            exit_code: null,
+            output: ''
+        };
+    }
+
+    async refreshJob() {
+        const response = await fetch(`http://localhost:8000/fastci/api/job/${this.state.id}`);
+        const data = await response.json();
+        this.setState({...data});
+    }
+
+    async componentDidMount() {
+        await this.refreshJob()
+        this.interval = setInterval(async () => await this.refreshJob(), 1000);
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.interval);
+    }
+
+    makeInfoElement(name, value) {
+        return (
+            <div className="job_info_element">
+                <label className="job_info_element_name">{name}</label>
+                <label className="job_info_element_value">{value}</label>
+            </div>
+        );
+    }
+
+    render() {
+        // TODO: line numbers
+
+        let info_elements = [
+            this.makeInfoElement('Id', this.state.id),
+            this.makeInfoElement('Name', this.state.name),
+            <div className="job_info_element">
+                <label className="job_info_element_name">Pipeline</label>
+                <label className="job_info_element_value">
+                    {/* TODO: show name of pipeline */}
+                    <Link to={`/pipeline/${this.state.pipeline}`}>{this.state.pipeline}</Link>
+                </label>
+            </div>,
+            // TODO: do we need to slice the id?
+            this.makeInfoElement('Container id', this.state.container_id.slice(0, 12)),
+            this.makeInfoElement('Timeout (in secs)',
+                this.state.timeout_secs?.toFixed(2) ?? 'None'),
+            this.makeInfoElement('Uptime (in secs)', this.state.uptime_secs.toFixed(2)),
+            <div className="job_info_element">
+                <label className="job_info_element_name">Status</label>
+                <label className={`job_info_element_value ${getStatusClass(this.state)}`}>
+                    {JOB_STATUS_DESCRIPTION[this.state.status]}
+                </label>
+            </div>,
+            this.makeInfoElement('Error', this.state.error || 'None'),
+            this.makeInfoElement('Exit code', this.state.exit_code ?? 'None'),
+        ];
+
+        return (
+            <RequiresLogin>
+                <div className="job_page_container">
+                    <p className="console_output">{this.state.output}</p>
+                    <div className="job_info_pane">
+                        {info_elements}
+                    </div>
+                </div>
+            </RequiresLogin>
+        );
+    }
+}
+
+JobPage = withRouter(JobPage);
+
 
 export default function App() {
     return (
         <AuthProvider>
             <BrowserRouter>
                 <Header/>
-                <Routes>
-                    <Route path='/' element={<MainPage/>}/>
-                    <Route path='/login' element={<LoginPage/>}/>
-                    <Route path='/register' element={<RegisterPage/>}/>
-                    <Route path='/signout' element={<SignOutPage/>}/>
-                    <Route path='/pipeline_list' element={<PipelineListPage/>}/>
-                    <Route path='/job_list' element={<JobListPage/>}/>
-                </Routes>
+                <div className="content_container">
+                    <Routes>
+                        <Route path='/' element={<MainPage/>}/>
+                        <Route path='/login' element={<LoginPage/>}/>
+                        <Route path='/register' element={<RegisterPage/>}/>
+                        <Route path='/signout' element={<SignOutPage/>}/>
+                        <Route path='/pipeline_list' element={<PipelineListPage/>}/>
+                        <Route path='/job_list' element={<JobListPage/>}/>
+                        <Route path='/job/:job_id' element={<JobPage/>}/>
+                    </Routes>
+                </div>
             </BrowserRouter>
         </AuthProvider>
     );

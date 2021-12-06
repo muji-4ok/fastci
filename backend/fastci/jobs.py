@@ -95,8 +95,11 @@ class DockerJob:
             # if finished => compare finished and started times, which are definitely in the same timezone
             started_time = docker_timestamp_to_seconds(self.container.attrs['State']['StartedAt'])
             return finished_time - started_time
+        elif self.status == models.JobStatus.CANCELLED or self.status == models.JobStatus.DEPENDENCY_FAILED:
+            # we were cancelled even before getting started
+            return 0
         else:
-            # not finished => running => we can compare our times, which also in the same timezone
+            # not finished => running => we can compare our times, which are also in the same timezone
             return time.time() - self.host_start_time_secs
 
     def cancel(self):

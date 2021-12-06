@@ -2,7 +2,18 @@
     display: flex;
     justify-content: space-around;
     align-items: center;
-    height: 100%;
+    background-color: #919edc;
+    position: fixed;
+    height: 7%;
+    width: 100%;
+}
+
+.content_container {
+    position: fixed;
+    top: 8%;
+    height: 92%;
+    width: 100%;
+    overflow: auto;
 }
 
 .submit_form {
@@ -42,4 +53,118 @@
 
 .form_submit button {
     padding: 5px 15px;
+}
+
+.jobs_table {
+    font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.jobs_table td, .jobs_table th {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.jobs_table tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+.jobs_table tr:hover {
+    background-color: #ddd;
+}
+
+.jobs_table th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: left;
+    background-color: #6e78c9;
+    color: white;
+}
+
+.not_started {
+    color: #4e6f6d;
+}
+
+.running {
+    color: #3d5aff;
+}
+
+.failed {
+    color: #ff180e;
+}
+
+.succeded {
+    color: #37ca07;
+}
+
+.cancelled {
+    color: #2a3539;
+}
+
+.job_page_container {
+    height: 100%;
+    display: flex;
+    flex-flow: row;
+}
+
+.console_output {
+    color: white;
+    background-color: black;
+    font-family: Consolas, monospace;
+    flex: 10 0 auto;
+    white-space: pre-line;
+    padding: 10px;
+    border-style: solid;
+    border-width: 5px;
+    border-color: green;
+    margin-top: 0;
+    margin-right: 10px;
+    margin-bottom: 16px;
+}
+
+.job_info_pane {
+    flex: 1 0 auto;
+    border-style: solid;
+    border-width: 5px;
+    padding: 2px;
+    border-color: #6e78c9;
+    margin-bottom: 16px;
+    display: flex;
+    flex-flow: column;
+    overflow: auto;
+}
+
+.job_info_element {
+    border-style: solid;
+    border-width: 2px;
+    margin-bottom: 2px;
+    border-color: #6e78c9;
+    flex: 1 1 auto;
+    display: flex;
+    flex-flow: column;
+    background-color: #bfe3e7;
+}
+
+.job_info_element_name {
+    padding: 5px;
+    flex: 1 0 auto;
+    background-color: #2b6cd7;
+    white-space: nowrap;
+}
+
+.job_info_element_value {
+    padding: 5px;
+    flex: 1 0 auto;
+    white-space: normal;
+    max-width: 250px;
+}
+
+#root {
+    flex-direction: column;
+    margin: 0;
+}
+
+html, body {
+    margin: 0;
 }

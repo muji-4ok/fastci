@@ -85,7 +85,14 @@ class PipelineSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'status']
 
 
-class JobSerializer(serializers.ModelSerializer):
+class CompleteJobSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
-        fields = ['id', 'name', 'status', 'parents']
+        fields = ['id', 'name', 'pipeline', 'container_id', 'timeout_secs', 'uptime_secs', 'parents', 'status', 'error',
+                  'exit_code', 'output']
+
+
+class ListingJobSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Job
+        fields = ['id', 'name', 'pipeline', 'uptime_secs', 'status', 'exit_code', 'container_id']
