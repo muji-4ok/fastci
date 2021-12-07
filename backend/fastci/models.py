@@ -36,7 +36,7 @@ class Pipeline(models.Model):
 
 class Job(models.Model):
     name = models.CharField(max_length=200)
-    pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
+    pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE, related_name='jobs')
 
     # id of an already created container
     # a hexadecimal of exact size 64
@@ -79,13 +79,15 @@ class Job(models.Model):
         return self.status not in (JobStatus.NOT_STARTED, JobStatus.RUNNING)
 
 
-class PipelineSerializer(serializers.ModelSerializer):
+class LightPipelineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pipeline
         fields = ['id', 'name', 'status']
 
 
 class CompleteJobSerializer(serializers.ModelSerializer):
+    pipeline = LightPipelineSerializer()
+
     class Meta:
         model = Job
         fields = ['id', 'name', 'pipeline', 'container_id', 'timeout_secs', 'uptime_secs', 'parents', 'status', 'error',
@@ -93,6 +95,27 @@ class CompleteJobSerializer(serializers.ModelSerializer):
 
 
 class ListingJobSerializer(serializers.ModelSerializer):
+    pipeline = LightPipelineSerializer()
+
     class Meta:
         model = Job
         fields = ['id', 'name', 'pipeline', 'uptime_secs', 'status', 'exit_code', 'container_id']
+
+
+class NodeJobSerializer(serializers.ModelSerializer):
+    """
+    Used in pipeline serializer - contains minimal info
+    """
+    class Meta:
+        model = Job
+        fields = ['id', 'name', 'status', 'exit_code', 'parents']
+
+
+class CompletePipelineSerializer(serializers.ModelSerializer):
+    jobs = NodeJobSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Pipeline
+        fields = ['id', 'name', 'status', 'jobs']
+
+

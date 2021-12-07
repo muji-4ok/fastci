@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 
-from .models import Job, ListingJobSerializer, CompleteJobSerializer, Pipeline, PipelineSerializer
+from .models import Job, ListingJobSerializer, CompleteJobSerializer, Pipeline, LightPipelineSerializer, \
+    CompletePipelineSerializer
 from . import tasks
 
 
@@ -22,23 +23,25 @@ class RetrieveJobViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):
 
 class ListPipelineViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = Pipeline.objects.all()
-    serializer_class = PipelineSerializer
+    serializer_class = LightPipelineSerializer
     # permission_classes = [IsAuthenticated]
 
 
 class RetrievePipelineViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):
     queryset = Pipeline.objects.all()
-    serializer_class = PipelineSerializer
+    serializer_class = CompletePipelineSerializer
 
 
 @api_view()
 def update_job_view(request: Request, job_id: int) -> Response:
+    # TODO: handle errors
     tasks.update_job.delay(job_id)
     return Response()
 
 
 @api_view()
 def cancel_job_view(request: Request, job_id: int) -> Response:
+    # TODO: handle errors
     tasks.cancel_job.delay(job_id)
     return Response()
 

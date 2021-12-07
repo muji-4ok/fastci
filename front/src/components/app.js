@@ -9,6 +9,7 @@ import {
     useNavigate,
     useParams
 } from 'react-router-dom';
+import {topologicalSort, transformToChildrenGraph} from '../utils/node'
 
 const JOB_NOT_STARTED = 0;
 const JOB_RUNNING = 1;
@@ -30,6 +31,20 @@ const JOB_STATUS_DESCRIPTION = [
     'Failed to start',
     'Cancelled',
     'Dependency failed'
+];
+
+const PIPELINE_NOT_STARTED = 0;
+const PIPELINE_RUNNING = 1;
+const PIPELINE_FAILED = 2;
+const PIPELINE_FINISHED = 3;
+const PIPELINE_CANCELLED = 4;
+
+const PIPELINE_STATUS_DESCRIPTION = [
+    'Not started',
+    'Running',
+    'Failed',
+    'Finished',
+    'Cancelled',
 ];
 
 
@@ -300,7 +315,7 @@ function PipelineListPage() {
     );
 }
 
-function getStatusClass(job) {
+function getJobStatusClass(job) {
     if (job.status === JOB_NOT_STARTED) {
         return 'not_started';
     } else if (job.status === JOB_RUNNING) {
@@ -350,7 +365,7 @@ class JobListPage extends React.Component {
 
     makeJobElement(job, index) {
         const status = JOB_STATUS_DESCRIPTION[job.status];
-        const statusClass = getStatusClass(job);
+        const statusClass = getJobStatusClass(job);
 
         // TODO: make the buttons pretty
         return (
@@ -361,7 +376,12 @@ class JobListPage extends React.Component {
                 <td>
                     <Link to={`/job/${job.id}`}>{job.name}</Link>
                 </td>
-                <td>{job.pipeline}</td>
+                <td>
+                    <Link to={`/pipeline/${job.pipeline.id}`}>{job.pipeline.id}</Link>
+                </td>
+                <td>
+                    <Link to={`/pipeline/${job.pipeline.id}`}>{job.pipeline.name}</Link>
+                </td>
                 <td className={statusClass}>{status}</td>
                 <td>{job.container_id}</td>
                 <td>{job.uptime_secs.toFixed(2)}</td>
@@ -386,7 +406,8 @@ class JobListPage extends React.Component {
                     <tr>
                         <th>Id</th>
                         <th>Name</th>
-                        <th>Pipeline</th>
+                        <th>Pipeline id</th>
+                        <th>Pipeline name</th>
                         <th>Status</th>
                         <th>Container id</th>
                         <th>Uptime (in secs)</th>
@@ -444,7 +465,7 @@ class JobPage extends React.Component {
         clearInterval(this.interval);
     }
 
-    makeInfoElement(name, value) {
+    makeBasicInfoElement(name, value) {
         return (
             <div className="job_info_element">
                 <label className="job_info_element_name">{name}</label>
@@ -453,33 +474,49 @@ class JobPage extends React.Component {
         );
     }
 
+    makeLinkInfoElement(name, value, link) {
+        return (
+            <div className="job_info_element">
+                <label className="job_info_element_name">{name}</label>
+                <label className="job_info_element_value">
+                    {/* TODO: show name of pipeline */}
+                    <Link to={link}>{value}</Link>
+                </label>
+            </div>
+        );
+    }
+
+    makeStatusElement(job) {
+        return (
+            <div className="job_info_element">
+                <label className="job_info_element_name">Status</label>
+                <label className={`job_info_element_value ${getJobStatusClass(job)}`}>
+                    {JOB_STATUS_DESCRIPTION[job.status]}
+                </label>
+            </div>
+        );
+    }
+
     render() {
         // TODO: line numbers
 
         let info_elements = [
-            this.makeInfoElement('Id', this.state.id),
-            this.makeInfoElement('Name', this.state.name),
-            <div className="job_info_element">
-                <label className="job_info_element_name">Pipeline</label>
-                <label className="job_info_element_value">
-                    {/* TODO: show name of pipeline */}
-                    <Link to={`/pipeline/${this.state.pipeline}`}>{this.state.pipeline}</Link>
-                </label>
-            </div>,
-            // TODO: do we need to slice the id?
-            this.makeInfoElement('Container id', this.state.container_id.slice(0, 12)),
-            this.makeInfoElement('Timeout (in secs)',
-                this.state.timeout_secs?.toFixed(2) ?? 'None'),
-            this.makeInfoElement('Uptime (in secs)', this.state.uptime_secs.toFixed(2)),
-            <div className="job_info_element">
-                <label className="job_info_element_name">Status</label>
-                <label className={`job_info_element_value ${getStatusClass(this.state)}`}>
-                    {JOB_STATUS_DESCRIPTION[this.state.status]}
-                </label>
-            </div>,
-            this.makeInfoElement('Error', this.state.error || 'None'),
-            this.makeInfoElement('Exit code', this.state.exit_code ?? 'None'),
-        ];
+                this.makeBasicInfoElement('Id', this.state.id),
+                this.makeBasicInfoElement('Name', this.state.name),
+                this.makeLinkInfoElement('Pipeline id', this.state.pipeline.id,
+                    `/pipeline/${this.state.pipeline.id}`),
+                this.makeLinkInfoElement('Pipeline name', this.state.pipeline.name,
+                    `/pipeline/${this.state.pipeline.id}`),
+                // TODO: do we need to slice the id?
+                this.makeBasicInfoElement('Container id', this.state.container_id.slice(0, 12)),
+                this.makeBasicInfoElement('Timeout (in secs)',
+                    this.state.timeout_secs?.toFixed(2) ?? 'None'),
+                this.makeBasicInfoElement('Uptime (in secs)', this.state.uptime_secs.toFixed(2)),
+                this.makeStatusElement(this.state),
+                this.makeBasicInfoElement('Error', this.state.error || 'None'),
+                this.makeBasicInfoElement('Exit code', this.state.exit_code ?? 'None')
+            ]
+        ;
 
         return (
             <RequiresLogin>
@@ -496,6 +533,184 @@ class JobPage extends React.Component {
 
 JobPage = withRouter(JobPage);
 
+function getPipelineStatusClass(status) {
+    if (status === PIPELINE_NOT_STARTED) {
+        return 'not_started';
+    } else if (status === PIPELINE_RUNNING) {
+        return 'running';
+    } else if (status === PIPELINE_FAILED) {
+        return 'failed';
+    } else if (status === PIPELINE_FINISHED) {
+        return 'succeded';
+    } else {
+        return 'cancelled';
+    }
+}
+
+class PipelinePage extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            id: props.params.pipeline_id,
+            name: '',
+            status: 0,
+            jobs: [],
+            graphBoxHeight: 0
+        }
+        this.graphBox = React.createRef();
+    }
+
+    async refreshPipeline() {
+        const response = await fetch(`http://localhost:8000/fastci/api/pipeline/${this.state.id}`);
+        const data = await response.json();
+
+        let jobs = {};
+
+        for (let job of data.jobs) {
+            jobs[job.id] = job;
+        }
+
+        this.setState({...data, jobs: jobs});
+    }
+
+    async componentDidMount() {
+        await this.refreshPipeline()
+        this.setState({graphBoxHeight: this.graphBox.current.offsetHeight});
+        this.interval = setInterval(async () => await this.refreshPipeline(), 1000);
+    }
+
+    componentDidUpdate(prevProps, prevState, snapshot) {
+        const newGraphBoxHeight = this.graphBox.current.offsetHeight;
+
+        if (prevState.graphBoxHeight !== this.state.graphBoxHeight) {
+            this.setState({graphBoxHeight: newGraphBoxHeight});
+        }
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.interval);
+    }
+
+    render() {
+        // TODO: handle dependencies from earlier stages correctly
+
+        const statusClass = getPipelineStatusClass(this.state.status)
+        const stages = topologicalSort(transformToChildrenGraph(this.state.jobs));
+
+        let graphSegments = [];
+
+        for (const [i, stage] of Object.entries(stages)) {
+            const jobNodes = stage.map((job, i) => {
+                return (
+                    <div className="pipeline_graph_node" key={i}>
+                        <Link to={`/job/${job.id}`}>{job.name}</Link>
+                    </div>
+                );
+            });
+
+            graphSegments.push(
+                <div className="pipeline_graph_stage_box" key={`${i}_stage`}>
+                    {jobNodes}
+                </div>
+            );
+
+            if (Number(i) !== stages.length - 1) {
+                let edges = [];
+
+                for (const [fromIdx, from] of Object.entries(stage)) {
+                    for (const [toIdx, to] of Object.entries(from.children)) {
+                        /*
+                          Okay.
+                          So.
+                          These are some hacks... Why is all of this - I want the graph
+                          edges to connect to graph nodes correctly (obviously). And the nodes are
+                          from the html elements world, while the edges are from svg, which don't
+                          really get along. The only way I can think of to make edges snap to nodes
+                          is for me to specify the path offsets by hand, using the fact that all the
+                          nodes' heights and margins are in pixels and thus all positions can be
+                          calculated precisely. The obvious way to do this would be to set the
+                          viewBox height of the svg to be the same as the containing box's height.
+                          But that doesn't work, since updating the viewBox causes the svg element
+                          to stretch, which causes the containing box to stretch, which causes the
+                          viewBox to update and so on... And the solution is to set the viewBox to
+                          be 0 0 1 1, and just divide all pixel values by the height of the box.
+                          (P.S. I set the width of the viewBox to 1 just for consistency, it's not
+                          actually necessary)
+                          (P.P.S. I'm sure there are many other solutions, but all of the others
+                          that I can think of are equally hacky)
+                         */
+                        const norm = this.state.graphBoxHeight;
+                        const marginTop = 5;
+                        const marginBot = 15;
+                        const padding = 5;
+                        const borderWidth = 4;
+                        const textHeight = 20;
+                        const offsetY = marginTop + padding + borderWidth + textHeight / 2;
+                        const diffY = textHeight + padding * 2 + borderWidth * 2 + marginTop +
+                            marginBot;
+                        const fromY = offsetY + diffY * fromIdx;
+                        const toY = offsetY + diffY * toIdx;
+
+                        edges.push(
+                            <path
+                                key={`${fromIdx}_${toIdx}`}
+                                stroke="#5f8ed2"
+                                fill="none"
+                                strokeWidth={2 / norm}
+                                markerEnd="url(#triangle)"
+                                d={`M 0 ${fromY / norm} C 0.5 ${fromY / norm} 0.5 ${toY / norm} 1 ${toY / norm}`}
+                            />
+                        );
+                    }
+                }
+
+                graphSegments.push(
+                    <svg key={`${i}_edges`} preserveAspectRatio="none"
+                         viewBox={`0 0 1 1`}>
+                        <defs>
+                            <marker id="triangle" viewBox="0 0 10 10"
+                                    refX="10" refY="5"
+                                    markerUnits="strokeWidth"
+                                    markerWidth="5" markerHeight="5"
+                                    orient="auto">
+                                <path d="M 0 2 L 10 5 L 0 8 z" fill="#6d716d"/>
+                            </marker>
+                        </defs>
+                        {edges}
+                    </svg>
+                );
+            }
+        }
+
+        return (
+            <RequiresLogin>
+                {/* TODO: make separete classes and make this pretty */}
+                <div className="pipeline_info_box">
+                    <div className="job_info_element">
+                        <label className="job_info_element_name">Id</label>
+                        <label className="job_info_element_value">{this.state.id}</label>
+                    </div>
+                    <div className="job_info_element">
+                        <label className="job_info_element_name">Name</label>
+                        <label className="job_info_element_value">{this.state.name}</label>
+                    </div>
+                    <div className="job_info_element">
+                        <label className="job_info_element_name">Status</label>
+                        <label className={`job_info_element_value ${statusClass}`}>
+                            {PIPELINE_STATUS_DESCRIPTION[this.state.status]}
+                        </label>
+                    </div>
+                </div>
+                <div ref={this.graphBox} className="pipeline_job_graph_box">
+                    {graphSegments}
+                </div>
+            </RequiresLogin>
+        );
+    }
+}
+
+PipelinePage = withRouter(PipelinePage);
+
 
 export default function App() {
     return (
@@ -511,6 +726,7 @@ export default function App() {
                         <Route path='/pipeline_list' element={<PipelineListPage/>}/>
                         <Route path='/job_list' element={<JobListPage/>}/>
                         <Route path='/job/:job_id' element={<JobPage/>}/>
+                        <Route path='/pipeline/:pipeline_id' element={<PipelinePage/>}/>
                     </Routes>
                 </div>
             </BrowserRouter>
