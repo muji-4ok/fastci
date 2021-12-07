@@ -31,7 +31,10 @@ class PipelineStatus(models.IntegerChoices):
 class Pipeline(models.Model):
     name = models.CharField(max_length=200)
     status = models.IntegerField(choices=PipelineStatus.choices, default=PipelineStatus.NOT_STARTED)
-    # TODO: info about user and other stats maybe
+    # TODO:
+    #   1) initiator
+    #   2) stages
+    #   3) uptime
 
 
 class Job(models.Model):
