@@ -593,6 +593,7 @@ class PipelinePage extends React.Component {
 
     render() {
         // TODO: handle dependencies from earlier stages correctly
+        // TODO: test this on more examples
 
         const statusClass = getPipelineStatusClass(this.state.status)
         const stages = topologicalSort(transformToChildrenGraph(this.state.jobs));
@@ -618,6 +619,8 @@ class PipelinePage extends React.Component {
                 let edges = [];
 
                 for (const [fromIdx, from] of Object.entries(stage)) {
+                    // FIXME: if any of children are not in the next stage (which they definitely
+                    //        don't have to be in), this works incorrectly
                     for (const [toIdx, to] of Object.entries(from.children)) {
                         /*
                           Okay.
