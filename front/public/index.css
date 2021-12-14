@@ -55,26 +55,26 @@
     padding: 5px 15px;
 }
 
-.jobs_table {
+.simple_table {
     font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
     border-collapse: collapse;
     width: 100%;
 }
 
-.jobs_table td, .jobs_table th {
+.simple_table td, .simple_table th {
     border: 1px solid #ddd;
     padding: 8px;
 }
 
-.jobs_table tr:nth-child(even) {
+.simple_table tr:nth-child(even) {
     background-color: #f2f2f2;
 }
 
-.jobs_table tr:hover {
+.simple_table tr:hover {
     background-color: #ddd;
 }
 
-.jobs_table th {
+.simple_table th {
     padding-top: 12px;
     padding-bottom: 12px;
     text-align: left;
@@ -135,7 +135,7 @@
     overflow: auto;
 }
 
-.job_info_element {
+.job_info_pane > div {
     border-style: solid;
     border-width: 2px;
     margin-bottom: 2px;
@@ -146,14 +146,14 @@
     background-color: #bfe3e7;
 }
 
-.job_info_element_name {
+.job_info_pane > div > label:first-child {
     padding: 5px;
     flex: 1 0 auto;
     background-color: #2b6cd7;
     white-space: nowrap;
 }
 
-.job_info_element_value {
+.job_info_pane > div > label:last-child {
     padding: 5px;
     flex: 1 0 auto;
     white-space: normal;
@@ -163,6 +163,32 @@
 .pipeline_info_box {
     display: flex;
     flex-direction: row;
+}
+
+/* TODO: make this pretty (also right now this is @CopyPaste from job_info_pane) */
+.pipeline_info_box > div {
+    border-style: solid;
+    border-width: 2px;
+    margin-bottom: 2px;
+    border-color: #6e78c9;
+    flex: 1 1 auto;
+    display: flex;
+    flex-flow: column;
+    background-color: #bfe3e7;
+}
+
+.pipeline_info_box > div > label:first-child {
+    padding: 5px;
+    flex: 1 0 auto;
+    background-color: #2b6cd7;
+    white-space: nowrap;
+}
+
+.pipeline_info_box > div > label:last-child {
+    padding: 5px;
+    flex: 1 0 auto;
+    white-space: normal;
+    max-width: 250px;
 }
 
 .pipeline_job_graph_box {
@@ -186,6 +212,71 @@
     border-color: #2b6cd7;
     white-space: nowrap;
     text-align: left;
+}
+
+.pipeline_list_stages_box {
+    display: flex;
+    flex-direction: row;
+}
+
+/*
+ * Okay, so this is how this works. position:absolute tells the element to not in any way influence
+ * the "document flow" (which means that it won't take up space when calculating the dimensions of
+ * the parent container). Instead the element is positioned relative to the
+ * "initial containing block" or the closest "positioned" ancestor if it exists.
+ * The "initial containing block" seems to be either the body or the html tag, doesn't really
+ * matter. And the "positioned" ancestor is a parent of the element, that has position != static
+ * (i.e. the default one). All of this is soo counter-intuitive, but it is what it is. That's why
+ * we need to set the position of the container to relative (which behaves exactly like the static
+ * position, but it doesn't ignore the top/bottom/left/right attributes).
+ */
+.pipeline_list_dropdown_container {
+    position: relative;
+}
+
+.pipeline_list_dropdown_container > button {
+    border: none;
+    text-decoration: none;
+    font-size: medium;
+    padding: 5px;
+    margin: 0 10px;
+}
+
+.pipeline_list_dropdown_container > div {
+    position: absolute;
+    /*
+    * Why this works:
+    * left: 50% translates the origin of this element in the **parent's** coordinate space and
+    * translateX(-50%) again translates the origin, but in **this element's** coordinate space, so
+    * it moves it by half of it's width
+    */
+    left: 50%;
+    transform: translateX(-50%);
+    /* Make the element start a bit lower than it's container */
+    top: 110%;
+    z-index: 1;
+    padding: 5px;
+    margin: 5px 5px 15px;
+    border-radius: 5px;
+    border-style: solid;
+    border-width: 4px;
+    border-color: #2b6cd7;
+    background-color: #d7edf1;
+    display: flex;
+    flex-direction: column;
+}
+
+.pipeline_list_dropdown_container > div > a {
+    white-space: nowrap;
+    text-align: center;
+    text-decoration: none;
+    padding: 6px;
+    border: none;
+}
+
+.pipeline_list_dropdown_container > div > a + a {
+    border-top-style: solid;
+    border-top-width: 1px;
 }
 
 #root {

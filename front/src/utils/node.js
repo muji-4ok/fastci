@@ -18,6 +18,19 @@ function _dfs(node, nodeState, result) {
     result.push(node);
 }
 
+export function transformToJobsDict(pipeline) {
+    let result = {...pipeline};
+    let jobs = {};
+
+    for (let job of pipeline.jobs) {
+        jobs[job.id] = job;
+    }
+
+    result.jobs = jobs;
+    return result;
+}
+
+// this is ugly - refactor somehow, to get rid of this function whatsoever
 export function transformToChildrenGraph(jobs) {
     let result = {...jobs};
 

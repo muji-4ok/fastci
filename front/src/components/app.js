@@ -9,7 +9,7 @@ import {
     useNavigate,
     useParams
 } from 'react-router-dom';
-import {topologicalSort, transformToChildrenGraph} from '../utils/node'
+import {topologicalSort, transformToChildrenGraph, transformToJobsDict} from '../utils/node'
 
 const JOB_NOT_STARTED = 0;
 const JOB_RUNNING = 1;
@@ -305,14 +305,143 @@ function MainPage() {
     );
 }
 
-function PipelineListPage() {
-    return (
-        <RequiresLogin>
-            <div>
-                <p>Pipeline list (WIP)</p>
-            </div>
-        </RequiresLogin>
-    );
+class PipelineListPage extends React.Component {
+    constructor(props) {
+        super(props);
+        // TODO: @Speed - redrawing **everything** on each button click is surely really
+        //       inefficient
+        //       also kinda ugly
+        this.state = {data: [], pipelineIdDropdownOpen: null, stageIndexDropdownOpen: null};
+    }
+
+    async refreshList() {
+        const response = await fetch('http://localhost:8000/fastci/api/pipeline_list');
+        let data = await response.json();
+        // @Speed - copying this each time just doesn't feel right
+        let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
+        this.setState({data: dataWithJobsTransformed});
+    }
+
+    async componentDidMount() {
+        await this.refreshList()
+        this.interval = setInterval(async () => await this.refreshList(), 1000);
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.interval);
+    }
+
+    getStageStatus(stage, pipelineStatus) {
+        // returns pipeline status
+
+        for (const job of stage) {
+
+        }
+        // const jobNodes = stage.map((job, i) => {
+    }
+
+    // `bind` prepends any additional arguments, so these identification args must precede `event`
+    toggleDropdown(pipelineId, stageIndex, event) {
+        // TODO: might be useful if I add hideDropdown, which isn't used yet
+        event.stopPropagation();
+
+        // TODO: is this needed?
+        event.preventDefault();
+
+        if (this.state.pipelineIdDropdownOpen === pipelineId &&
+            this.state.stageIndexDropdownOpen === stageIndex) {
+            this.setState({
+                pipelineIdDropdownOpen: null,
+                stageIndexDropdownOpen: null
+            });
+        } else {
+            this.setState({
+                pipelineIdDropdownOpen: pipelineId,
+                stageIndexDropdownOpen: stageIndex
+            });
+        }
+    }
+
+    // TODO: Not sure how to use this yet. I can place this in the top-level container, but then
+    //       I'll need to carefully handle event propagation
+    hideDropdown(event) {
+        // TODO: is this needed?
+        event.preventDefault();
+
+        this.setState({
+            pipelineIdDropdownOpen: null,
+            stageIndexDropdownOpen: null
+        });
+    }
+
+    makePipelineElement(pipeline, index) {
+        const status = PIPELINE_STATUS_DESCRIPTION[pipeline.status];
+        const statusClass = getPipelineStatusClass(pipeline.status);
+
+        // @Speed - inefficient - copying and recalculating this here
+        const stages = topologicalSort(transformToChildrenGraph(pipeline.jobs));
+        const stagesElements = stages.map((stage, i) => {
+            const jobsElements = stage.map((job, i) => {
+                return <Link to={`/job/${job.id}`} key={i}>{job.name}</Link>;
+            });
+
+            return (
+                <div className="pipeline_list_dropdown_container" key={i}>
+                    <button onClick={this.toggleDropdown.bind(this, pipeline.id, i)}>
+                        {`stage_${i}`}
+                    </button>
+                    {(this.state.pipelineIdDropdownOpen === pipeline.id &&
+                        this.state.stageIndexDropdownOpen === i) ?
+                        <div>{jobsElements}</div> : null}
+                </div>
+            );
+        });
+
+        return (
+            <tr key={index}>
+                <td>
+                    <Link to={`/pipeline/${pipeline.id}`}>{pipeline.id}</Link>
+                </td>
+                <td>
+                    <Link to={`/pipeline/${pipeline.id}`}>{pipeline.name}</Link>
+                </td>
+                <td className={statusClass}>{status}</td>
+                <td>
+                    <div className="pipeline_list_stages_box">
+                        {stagesElements}
+                    </div>
+                </td>
+            </tr>
+        );
+    }
+
+    render() {
+        // TODO:
+        //   1. paging
+        //   2. search
+        //   3. actions - update, cancel, start, restart
+        //   4. uptime
+        //   5. show status of individual stages and also steps in each stage
+        const elements = this.state.data.reverse().map(this.makePipelineElement.bind(this));
+
+        return (
+            <RequiresLogin>
+                <table className="simple_table">
+                    <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Jobs</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {elements}
+                    </tbody>
+                </table>
+            </RequiresLogin>
+        );
+    }
 }
 
 function getJobStatusClass(job) {
@@ -383,7 +512,8 @@ class JobListPage extends React.Component {
                     <Link to={`/pipeline/${job.pipeline.id}`}>{job.pipeline.name}</Link>
                 </td>
                 <td className={statusClass}>{status}</td>
-                <td>{job.container_id}</td>
+                {/* TODO: do we need to slice the id? */}
+                <td>{job.container_id.slice(0, 12)}</td>
                 <td>{job.uptime_secs.toFixed(2)}</td>
                 <td>
                     <button onClick={this.updateJob.bind(this, job.id)}>Update</button>
@@ -396,12 +526,13 @@ class JobListPage extends React.Component {
     render() {
         // TODO: paging
         // TODO: search
+        // TODO: start, restart
         const elements = this.state.data.reverse().map(this.makeJobElement.bind(this));
 
         // maybe remove container id?
         return (
             <RequiresLogin>
-                <table className="jobs_table">
+                <table className="simple_table">
                     <thead>
                     <tr>
                         <th>Id</th>
@@ -467,18 +598,18 @@ class JobPage extends React.Component {
 
     makeBasicInfoElement(name, value) {
         return (
-            <div className="job_info_element">
-                <label className="job_info_element_name">{name}</label>
-                <label className="job_info_element_value">{value}</label>
+            <div>
+                <label>{name}</label>
+                <label>{value}</label>
             </div>
         );
     }
 
     makeLinkInfoElement(name, value, link) {
         return (
-            <div className="job_info_element">
-                <label className="job_info_element_name">{name}</label>
-                <label className="job_info_element_value">
+            <div>
+                <label>{name}</label>
+                <label>
                     {/* TODO: show name of pipeline */}
                     <Link to={link}>{value}</Link>
                 </label>
@@ -488,9 +619,9 @@ class JobPage extends React.Component {
 
     makeStatusElement(job) {
         return (
-            <div className="job_info_element">
-                <label className="job_info_element_name">Status</label>
-                <label className={`job_info_element_value ${getJobStatusClass(job)}`}>
+            <div>
+                <label>Status</label>
+                <label className={getJobStatusClass(job)}>
                     {JOB_STATUS_DESCRIPTION[job.status]}
                 </label>
             </div>
@@ -563,14 +694,8 @@ class PipelinePage extends React.Component {
     async refreshPipeline() {
         const response = await fetch(`http://localhost:8000/fastci/api/pipeline/${this.state.id}`);
         const data = await response.json();
-
-        let jobs = {};
-
-        for (let job of data.jobs) {
-            jobs[job.id] = job;
-        }
-
-        this.setState({...data, jobs: jobs});
+        // @Speed - copying this each time just doesn't feel right
+        this.setState({...transformToJobsDict(data)});
     }
 
     async componentDidMount() {
@@ -596,6 +721,7 @@ class PipelinePage extends React.Component {
         // TODO: test this on more examples
 
         const statusClass = getPipelineStatusClass(this.state.status)
+        // @Speed - inefficient - copying and recalculating this here
         const stages = topologicalSort(transformToChildrenGraph(this.state.jobs));
 
         let graphSegments = [];
@@ -620,7 +746,7 @@ class PipelinePage extends React.Component {
 
                 for (const [fromIdx, from] of Object.entries(stage)) {
                     // FIXME: if any of children are not in the next stage (which they definitely
-                    //        don't have to be in), this works incorrectly
+                    //        don't always have to be in), this works incorrectly
                     for (const [toIdx, to] of Object.entries(from.children)) {
                         /*
                           Okay.
@@ -687,19 +813,18 @@ class PipelinePage extends React.Component {
 
         return (
             <RequiresLogin>
-                {/* TODO: make separete classes and make this pretty */}
                 <div className="pipeline_info_box">
-                    <div className="job_info_element">
-                        <label className="job_info_element_name">Id</label>
-                        <label className="job_info_element_value">{this.state.id}</label>
+                    <div>
+                        <label>Id</label>
+                        <label>{this.state.id}</label>
                     </div>
-                    <div className="job_info_element">
-                        <label className="job_info_element_name">Name</label>
-                        <label className="job_info_element_value">{this.state.name}</label>
+                    <div>
+                        <label>Name</label>
+                        <label>{this.state.name}</label>
                     </div>
-                    <div className="job_info_element">
-                        <label className="job_info_element_name">Status</label>
-                        <label className={`job_info_element_value ${statusClass}`}>
+                    <div>
+                        <label>Status</label>
+                        <label className={statusClass}>
                             {PIPELINE_STATUS_DESCRIPTION[this.state.status]}
                         </label>
                     </div>
