@@ -10,7 +10,6 @@ router.register('pipeline_list', views.ListPipelineViewSet)
 router.register('pipeline', views.RetrievePipelineViewSet)
 
 urlpatterns = [
-    path('', views.index, name='index'),
     path('api/', include(router.urls)),
     path('api/update_job/<int:job_id>/', views.update_job_view),
     path('api/cancel_job/<int:job_id>/', views.cancel_job_view)

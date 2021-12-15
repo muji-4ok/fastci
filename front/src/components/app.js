@@ -47,6 +47,8 @@ const PIPELINE_STATUS_DESCRIPTION = [
     'Cancelled',
 ];
 
+const API_BASE = 'http://localhost:8000'
+
 
 function Header() {
     let location = useLocation();
@@ -61,47 +63,112 @@ function Header() {
     );
 }
 
-let AuthContext = React.createContext(null);
+async function loginViaJWT(username, password) {
+    // The / at the end is needed for django for some reason
+    const url = `${API_BASE}/api/token/`;
 
-function AuthProvider(props) {
-    let {children} = props;
-    let [user, setUser] = React.useState('');
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify({
+            username: username,
+            password: password
+        })
+    });
 
-    let signIn = (username, password) => {
-        if (username === 'egor' && password === '123') {
-            setUser(username);
-            return true;
+    const data = await response.json();
+
+    if (response.status === 401) {
+        return data['detail'];
+    } else {
+        window.localStorage.setItem('ACCESS_TOKEN', data['access']);
+        window.localStorage.setItem('REFRESH_TOKEN', data['refresh']);
+        return '';
+    }
+}
+
+async function refreshAccessToken() {
+    // The / at the end is needed for django for some reason
+    const url = `${API_BASE}/api/token/refresh/`
+    const refreshToken = window.localStorage.getItem('REFRESH_TOKEN') || '';
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'Application/json',
+        },
+        body: JSON.stringify({
+            refresh: refreshToken
+        })
+    });
+
+    const data = await response.json();
+
+    if (response.status === 401) {
+        console.log('Refreshing token failed with unauthorized error:', data['detail']);
+        return false;
+    } else if (response.status !== 200) {
+        console.log('Refreshing token failed with error:', data);
+        return false;
+    } else {
+        window.localStorage.setItem('ACCESS_TOKEN', data['access']);
+        return true;
+    }
+}
+
+async function signUp(firstName, lastName, username, password) {
+    return false;
+}
+
+function signOut() {
+    window.localStorage.removeItem('ACCESS_TOKEN');
+    window.localStorage.removeItem('REFRESH_TOKEN');
+}
+
+function isLoggedIn() {
+    if (!window.localStorage.getItem('REFRESH_TOKEN')) {
+        return false;
+    }
+
+    // TODO: check that token is actually valid
+
+    return true;
+}
+
+async function doCallApi(path) {
+    // low level call - returns the response, doesn't try to refresh the token, just passes the
+    // stored access token
+    const url = `${API_BASE}/${path}`;
+    const accessToken = window.localStorage.getItem('ACCESS_TOKEN') || '';
+    const headers = {
+        Authorization: `Bearer ${accessToken}`
+    };
+    return await fetch(url, {headers});
+}
+
+async function fetchDataFromApi(path) {
+    let response = await doCallApi(path);
+
+    if (response.status === 401) {
+        const refreshed = await refreshAccessToken();
+
+        if (!refreshed) {
+            return null;
         } else {
-            return false;
+            response = await doCallApi(path);
         }
     }
 
-    let signUp = (firstName, lastName, username, password) => {
-        setUser(username);
-        return true;
-    }
-
-    let signOut = () => {
-        setUser('');
-    }
-
-    let value = {user, signIn, signUp, signOut};
-
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-function useAuth() {
-    return React.useContext(AuthContext);
+    return await response.json();
 }
 
 function RequiresLogin(props) {
     let {children} = props;
     let location = useLocation();
-    let auth = useAuth();
-    // let isLoggedIn = auth.user !== '';
-    let isLoggedIn = true;
 
-    if (isLoggedIn) {
+    if (isLoggedIn()) {
         return children;
     } else {
         return <Navigate to='/login' state={{from: location}}/>
@@ -118,8 +185,6 @@ function LoginPage() {
         : 'You need to login to view this page!';
     let [error, setError] = React.useState(initialMessage);
 
-    let {signIn} = useAuth();
-
     const handle_submit = async (event) => {
         event.preventDefault();
 
@@ -133,10 +198,12 @@ function LoginPage() {
             return;
         }
 
-        if (signIn(username, password)) {
+        const message = await loginViaJWT(username, password);
+
+        if (message === '') {
             navigate((from === null) ? '/' : from, {replace: true});
         } else {
-            setError('Incorrect username or password!');
+            setError(message);
         }
     };
 
@@ -183,8 +250,6 @@ function RegisterPage() {
     let [confirmPassword, setConfirmPassword] = React.useState('');
     let [error, setError] = React.useState('\u200b');
 
-    let {signUp} = useAuth();
-
     const handle_submit = async (event) => {
         event.preventDefault();
 
@@ -219,7 +284,7 @@ function RegisterPage() {
             return;
         }
 
-        if (signUp(firstName, lastName, username, password)) {
+        if (await signUp(firstName, lastName, username, password)) {
             navigate((from === null) ? '/' : from, {replace: true});
         } else {
             // TODO: explain what went wrong
@@ -285,12 +350,7 @@ function RegisterPage() {
 
 function SignOutPage() {
     const from = useLocation().state?.from || null;
-    let {signOut} = useAuth();
-
-    React.useEffect(() => {
-        signOut();
-    });
-
+    signOut();
     return <Navigate to='/login' state={(from === null) ? null : {from: from}}/>
 }
 
@@ -305,18 +365,65 @@ function MainPage() {
     );
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/*
+ * JS is such a piece of absolute garbage of a language... I don't even.
+ *
+ * Now, the problem. Firstly, componentDidMount and componentWillUnmount are both asynchronous and
+ * they are run in parallel. Which is fucking stupid by itself... Secondly, I need to setInterval
+ * in componentDidMount and clearInterval in componentWillUnmount, but I need to pass the
+ * interval id from setInterval to clearInterval. Considering the fact that componentDidMount and
+ * componentWillUnmount are run simultaneously, there is an obvious race condition when
+ * clearInterval is called even before setInterval, not even between creation and setting the
+ * interval id, which would also cause the same problem. ...Aaand the solution... Well, firstly,
+ * there's no locks in the standard library, which is just bizzare... And also the promise/future
+ * API is trash, it's not at all usable when you need to resolve the promise from the outer
+ * scope (the solutions from stackoverflow that use this have a race condition I'm pretty sure).
+ *
+ * That's why we have this 'lock'. Also the fact that there's no pass by reference and that
+ * React's state is immutable makes this even worse.
+ */
+
+let collectionOfIntervalIdForUseInThisGodAwfulHack = {
+    nameOfFieldForIntervalIdForPipelineListPage: null,
+    nameOfFieldForIntervalIdForJobListPage: null,
+    nameOfFieldForIntervalIdForJobPage: null,
+    nameOfFieldForIntervalIdForPipelinePage: null
+};
+
+async function actuallyClearIntervalWithoutRaceConditions(nameOfFieldIntervalIdField) {
+    while (collectionOfIntervalIdForUseInThisGodAwfulHack[nameOfFieldIntervalIdField] === null) {
+        await sleep(50);
+    }
+
+    clearInterval(collectionOfIntervalIdForUseInThisGodAwfulHack[nameOfFieldIntervalIdField]);
+    collectionOfIntervalIdForUseInThisGodAwfulHack[nameOfFieldIntervalIdField] = null;
+}
+
 class PipelineListPage extends React.Component {
     constructor(props) {
         super(props);
         // TODO: @Speed - redrawing **everything** on each button click is surely really
         //       inefficient
         //       also kinda ugly
-        this.state = {data: [], pipelineIdDropdownOpen: null, stageIndexDropdownOpen: null};
+        this.state = {
+            data: [],
+            pipelineIdDropdownOpen: null,
+            stageIndexDropdownOpen: null
+        };
     }
 
     async refreshList() {
-        const response = await fetch('http://localhost:8000/fastci/api/pipeline_list');
-        let data = await response.json();
+        let data = await fetchDataFromApi('fastci/api/pipeline_list');
+
+        if (data === null) {
+            console.log('Failed to refresh pipeline list!');
+            return;
+        }
+
         // @Speed - copying this each time just doesn't feel right
         let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
         this.setState({data: dataWithJobsTransformed});
@@ -324,11 +431,12 @@ class PipelineListPage extends React.Component {
 
     async componentDidMount() {
         await this.refreshList()
-        this.interval = setInterval(async () => await this.refreshList(), 1000);
+        const intervalId = setInterval(async () => await this.refreshList(), 1000)
+        collectionOfIntervalIdForUseInThisGodAwfulHack['nameOfFieldForIntervalIdForPipelineListPage'] = intervalId;
     }
 
-    componentWillUnmount() {
-        clearInterval(this.interval);
+    async componentWillUnmount() {
+        await actuallyClearIntervalWithoutRaceConditions('nameOfFieldForIntervalIdForPipelineListPage');
     }
 
     getStageStatus(stage, pipelineStatus) {
@@ -468,27 +576,41 @@ class JobListPage extends React.Component {
     }
 
     async refreshList() {
-        const response = await fetch('http://localhost:8000/fastci/api/job_list');
-        const data = await response.json();
+        const data = await fetchDataFromApi('fastci/api/job_list');
+
+        if (data === null) {
+            console.log('Failed to refresh job list!');
+            return;
+        }
+
         this.setState({data: data});
     }
 
     async componentDidMount() {
         await this.refreshList()
-        this.interval = setInterval(async () => await this.refreshList(), 1000);
+        const intervalId = setInterval(async () => await this.refreshList(), 1000)
+        collectionOfIntervalIdForUseInThisGodAwfulHack['nameOfFieldForIntervalIdForJobListPage'] = intervalId;
     }
 
-    componentWillUnmount() {
-        clearInterval(this.interval);
+    async componentWillUnmount() {
+        await actuallyClearIntervalWithoutRaceConditions('nameOfFieldForIntervalIdForJobListPage');
     }
 
     async updateJob(job_id) {
-        await fetch(`http://localhost:8000/fastci/api/update_job/${job_id}`);
+        if (await fetchDataFromApi(`fastci/api/update_job/${job_id}`) === null) {
+            console.log('Failed to update job!');
+            return;
+        }
+
         await this.refreshList();
     }
 
     async cancelJob(job_id) {
-        await fetch(`http://localhost:8000/fastci/api/cancel_job/${job_id}`);
+        if (await fetchDataFromApi(`fastci/api/cancel_job/${job_id}`) === null) {
+            console.log('Failed to cancel job!');
+            return;
+        }
+
         await this.refreshList();
     }
 
@@ -582,23 +704,29 @@ class JobPage extends React.Component {
     }
 
     async refreshJob() {
-        const response = await fetch(`http://localhost:8000/fastci/api/job/${this.state.id}`);
-        const data = await response.json();
+        const data = await fetchDataFromApi(`fastci/api/job/${this.state.id}`);
+
+        if (data === null) {
+            console.log('Failed to refresh job!');
+            return;
+        }
+
         this.setState({...data});
     }
 
     async componentDidMount() {
         await this.refreshJob()
-        this.interval = setInterval(async () => await this.refreshJob(), 1000);
+        const intervalId = setInterval(async () => await this.refreshJob(), 1000)
+        collectionOfIntervalIdForUseInThisGodAwfulHack['nameOfFieldForIntervalIdForJobPage'] = intervalId;
     }
 
-    componentWillUnmount() {
-        clearInterval(this.interval);
+    async componentWillUnmount() {
+        await actuallyClearIntervalWithoutRaceConditions('nameOfFieldForIntervalIdForJobPage');
     }
 
     makeBasicInfoElement(name, value) {
         return (
-            <div>
+            <div key={name}>
                 <label>{name}</label>
                 <label>{value}</label>
             </div>
@@ -607,7 +735,7 @@ class JobPage extends React.Component {
 
     makeLinkInfoElement(name, value, link) {
         return (
-            <div>
+            <div key={name}>
                 <label>{name}</label>
                 <label>
                     {/* TODO: show name of pipeline */}
@@ -619,7 +747,7 @@ class JobPage extends React.Component {
 
     makeStatusElement(job) {
         return (
-            <div>
+            <div key="Status">
                 <label>Status</label>
                 <label className={getJobStatusClass(job)}>
                     {JOB_STATUS_DESCRIPTION[job.status]}
@@ -692,8 +820,13 @@ class PipelinePage extends React.Component {
     }
 
     async refreshPipeline() {
-        const response = await fetch(`http://localhost:8000/fastci/api/pipeline/${this.state.id}`);
-        const data = await response.json();
+        const data = await fetchDataFromApi(`fastci/api/pipeline/${this.state.id}`);
+
+        if (data === null) {
+            console.log('Failed to refresh pipeline!');
+            return;
+        }
+
         // @Speed - copying this each time just doesn't feel right
         this.setState({...transformToJobsDict(data)});
     }
@@ -701,7 +834,8 @@ class PipelinePage extends React.Component {
     async componentDidMount() {
         await this.refreshPipeline()
         this.setState({graphBoxHeight: this.graphBox.current.offsetHeight});
-        this.interval = setInterval(async () => await this.refreshPipeline(), 1000);
+        const intervalId = setInterval(async () => await this.refreshPipeline(), 1000)
+        collectionOfIntervalIdForUseInThisGodAwfulHack['nameOfFieldForIntervalIdForPipelinePage'] = intervalId;
     }
 
     componentDidUpdate(prevProps, prevState, snapshot) {
@@ -712,8 +846,8 @@ class PipelinePage extends React.Component {
         }
     }
 
-    componentWillUnmount() {
-        clearInterval(this.interval);
+    async componentWillUnmount() {
+        await actuallyClearIntervalWithoutRaceConditions('nameOfFieldForIntervalIdForPipelinePage');
     }
 
     render() {
@@ -842,22 +976,20 @@ PipelinePage = withRouter(PipelinePage);
 
 export default function App() {
     return (
-        <AuthProvider>
-            <BrowserRouter>
-                <Header/>
-                <div className="content_container">
-                    <Routes>
-                        <Route path='/' element={<MainPage/>}/>
-                        <Route path='/login' element={<LoginPage/>}/>
-                        <Route path='/register' element={<RegisterPage/>}/>
-                        <Route path='/signout' element={<SignOutPage/>}/>
-                        <Route path='/pipeline_list' element={<PipelineListPage/>}/>
-                        <Route path='/job_list' element={<JobListPage/>}/>
-                        <Route path='/job/:job_id' element={<JobPage/>}/>
-                        <Route path='/pipeline/:pipeline_id' element={<PipelinePage/>}/>
-                    </Routes>
-                </div>
-            </BrowserRouter>
-        </AuthProvider>
+        <BrowserRouter>
+            <Header/>
+            <div className="content_container">
+                <Routes>
+                    <Route path='/' element={<MainPage/>}/>
+                    <Route path='/login' element={<LoginPage/>}/>
+                    <Route path='/register' element={<RegisterPage/>}/>
+                    <Route path='/signout' element={<SignOutPage/>}/>
+                    <Route path='/pipeline_list' element={<PipelineListPage/>}/>
+                    <Route path='/job_list' element={<JobListPage/>}/>
+                    <Route path='/job/:job_id' element={<JobPage/>}/>
+                    <Route path='/pipeline/:pipeline_id' element={<PipelinePage/>}/>
+                </Routes>
+            </div>
+        </BrowserRouter>
     );
 }

@@ -40,7 +40,7 @@
     display: grid;
     margin-bottom: 10px;
     text-align: left;
-    width: 300px; /* to make sure that error textbox doesn't resize when something happens */
+    width: 350px; /* to make sure that error textbox doesn't resize when something happens */
 }
 
 .form_field label {

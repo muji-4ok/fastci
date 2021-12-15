@@ -109,6 +109,7 @@ class NodeJobSerializer(serializers.ModelSerializer):
     """
     Used in pipeline serializer - contains minimal info
     """
+
     class Meta:
         model = Job
         fields = ['id', 'name', 'status', 'exit_code', 'parents']
@@ -120,5 +121,3 @@ class CompletePipelineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pipeline
         fields = ['id', 'name', 'status', 'jobs']
-
-
