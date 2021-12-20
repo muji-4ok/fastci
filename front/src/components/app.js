@@ -369,40 +369,6 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/*
- * JS is such a piece of absolute garbage of a language... I don't even.
- *
- * Now, the problem. Firstly, componentDidMount and componentWillUnmount are both asynchronous and
- * they are run in parallel. Which is fucking stupid by itself... Secondly, I need to setInterval
- * in componentDidMount and clearInterval in componentWillUnmount, but I need to pass the
- * interval id from setInterval to clearInterval. Considering the fact that componentDidMount and
- * componentWillUnmount are run simultaneously, there is an obvious race condition when
- * clearInterval is called even before setInterval, not even between creation and setting the
- * interval id, which would also cause the same problem. ...Aaand the solution... Well, firstly,
- * there's no locks in the standard library, which is just bizzare... And also the promise/future
- * API is trash, it's not at all usable when you need to resolve the promise from the outer
- * scope (the solutions from stackoverflow that use this have a race condition I'm pretty sure).
- *
- * That's why we have this 'lock'. Also the fact that there's no pass by reference and that
- * React's state is immutable makes this even worse.
- */
-
-let collectionOfIntervalIdForUseInThisGodAwfulHack = {
-    nameOfFieldForIntervalIdForPipelineListPage: null,
-    nameOfFieldForIntervalIdForJobListPage: null,
-    nameOfFieldForIntervalIdForJobPage: null,
-    nameOfFieldForIntervalIdForPipelinePage: null
-};
-
-async function actuallyClearIntervalWithoutRaceConditions(nameOfFieldIntervalIdField) {
-    while (collectionOfIntervalIdForUseInThisGodAwfulHack[nameOfFieldIntervalIdField] === null) {
-        await sleep(50);
-    }
-
-    clearInterval(collectionOfIntervalIdForUseInThisGodAwfulHack[nameOfFieldIntervalIdField]);
-    collectionOfIntervalIdForUseInThisGodAwfulHack[nameOfFieldIntervalIdField] = null;
-}
-
 class PipelineListPage extends React.Component {
     constructor(props) {
         super(props);
@@ -412,7 +378,8 @@ class PipelineListPage extends React.Component {
         this.state = {
             data: [],
             pipelineIdDropdownOpen: null,
-            stageIndexDropdownOpen: null
+            stageIndexDropdownOpen: null,
+            intervalId: null
         };
     }
 
@@ -430,13 +397,20 @@ class PipelineListPage extends React.Component {
     }
 
     async componentDidMount() {
+        // NOTE: componentDidMount and componentWillUnmount are, strangely enough, executed
+        //       concurrently. And we need setInterval to fire before clearInterval. But js doesn't
+        //       have any locks, which is strange... So we need to rely on the fact that js is
+        //       run in a single thread, that componentDidMount is scheduled before
+        //       compontWillUnmount, js has cooperative concurrency (NOT SURE ABOUT THIS ONE) and
+        //       that setInterval and such don't cause context switching. Taking all of this into
+        //       consideration, we can conclude that this code below is (hopefully) correct
+        const intervalId = setInterval(async () => await this.refreshList(), 1000);
+        this.setState({intervalId});
         await this.refreshList()
-        const intervalId = setInterval(async () => await this.refreshList(), 1000)
-        collectionOfIntervalIdForUseInThisGodAwfulHack['nameOfFieldForIntervalIdForPipelineListPage'] = intervalId;
     }
 
-    async componentWillUnmount() {
-        await actuallyClearIntervalWithoutRaceConditions('nameOfFieldForIntervalIdForPipelineListPage');
+    componentWillUnmount() {
+        clearInterval(this.state.intervalId);
     }
 
     getStageStatus(stage, pipelineStatus) {
@@ -572,7 +546,7 @@ function getJobStatusClass(job) {
 class JobListPage extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {data: []};
+        this.state = {data: [], intervalId: null};
     }
 
     async refreshList() {
@@ -587,13 +561,14 @@ class JobListPage extends React.Component {
     }
 
     async componentDidMount() {
+        // NOTE: See the NOTE: in PipelineListPage
+        const intervalId = setInterval(async () => await this.refreshList(), 1000);
+        this.setState({intervalId});
         await this.refreshList()
-        const intervalId = setInterval(async () => await this.refreshList(), 1000)
-        collectionOfIntervalIdForUseInThisGodAwfulHack['nameOfFieldForIntervalIdForJobListPage'] = intervalId;
     }
 
-    async componentWillUnmount() {
-        await actuallyClearIntervalWithoutRaceConditions('nameOfFieldForIntervalIdForJobListPage');
+    componentWillUnmount() {
+        clearInterval(this.state.intervalId);
     }
 
     async updateJob(job_id) {
@@ -699,7 +674,8 @@ class JobPage extends React.Component {
             status: 0,
             error: '',
             exit_code: null,
-            output: ''
+            output: '',
+            intervalId: null
         };
     }
 
@@ -715,13 +691,14 @@ class JobPage extends React.Component {
     }
 
     async componentDidMount() {
+        // NOTE: See the NOTE: in PipelineListPage
+        const intervalId = setInterval(async () => await this.refreshJob(), 1000);
+        this.setState({intervalId});
         await this.refreshJob()
-        const intervalId = setInterval(async () => await this.refreshJob(), 1000)
-        collectionOfIntervalIdForUseInThisGodAwfulHack['nameOfFieldForIntervalIdForJobPage'] = intervalId;
     }
 
-    async componentWillUnmount() {
-        await actuallyClearIntervalWithoutRaceConditions('nameOfFieldForIntervalIdForJobPage');
+    componentWillUnmount() {
+        clearInterval(this.state.intervalId);
     }
 
     makeBasicInfoElement(name, value) {
@@ -814,7 +791,8 @@ class PipelinePage extends React.Component {
             name: '',
             status: 0,
             jobs: [],
-            graphBoxHeight: 0
+            graphBoxHeight: 0,
+            intervalId: null
         }
         this.graphBox = React.createRef();
     }
@@ -832,10 +810,11 @@ class PipelinePage extends React.Component {
     }
 
     async componentDidMount() {
+        // NOTE: See the NOTE: in PipelineListPage
+        const intervalId = setInterval(async () => await this.refreshPipeline(), 1000);
+        this.setState({intervalId});
         await this.refreshPipeline()
         this.setState({graphBoxHeight: this.graphBox.current.offsetHeight});
-        const intervalId = setInterval(async () => await this.refreshPipeline(), 1000)
-        collectionOfIntervalIdForUseInThisGodAwfulHack['nameOfFieldForIntervalIdForPipelinePage'] = intervalId;
     }
 
     componentDidUpdate(prevProps, prevState, snapshot) {
@@ -846,8 +825,8 @@ class PipelinePage extends React.Component {
         }
     }
 
-    async componentWillUnmount() {
-        await actuallyClearIntervalWithoutRaceConditions('nameOfFieldForIntervalIdForPipelinePage');
+    componentWillUnmount() {
+        clearInterval(this.state.intervalId);
     }
 
     render() {
