@@ -76,6 +76,7 @@ def cancel_job_view(request: Request, job_id: int) -> Response:
 @permission_classes([IsAuthenticated])
 def cancel_pipeline_view(request: Request, pipeline_id: int) -> Response:
     # TODO: handle errors
+    # TODO: maybe wait for the task's result and send some reply?
     tasks.cancel_pipeline.delay(pipeline_id)
     return Response()
 

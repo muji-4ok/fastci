@@ -1,0 +1,37 @@
+{
+  "name": "multi_printer_pipeline",
+  "jobs": [
+    {
+      "name": "main_1",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_2",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_3",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_4",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    }
+  ]
+}

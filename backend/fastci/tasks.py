@@ -138,11 +138,12 @@ def create_pipeline_from_json(json_str: str) -> int:
     data = json.loads(json_str)
     pipeline = models.Pipeline(name=data['name'])
     pipeline.save()
-    # TODO: assert names don't collide
     jobs_names = dict()
 
     for job_data in data['jobs']:
         job = models.Job.objects.get(pk=create_job(**job_data, pipeline_id=pipeline.pk))
+        # TODO: instead of asserting, return an error that can be parsed and understood
+        assert job.name not in jobs_names, 'Names of jobs in a single pipeline must be unique!'
         jobs_names[job.name] = job
         job.save()
 

@@ -480,6 +480,18 @@ function PipelineCreatePage(props) {
     );
 }
 
+function JobLink(props) {
+    const {job} = props;
+    const statusClass = getJobStatusClass(job);
+
+    return (
+        <Link to={`/job/${job.id}`} className={`job_link ${statusClass}`}>
+            <i className={`fas ${getIconClassFromStatusClass(statusClass)}`}/>
+            <span>{job.name}</span>
+        </Link>
+    );
+}
+
 class PipelineListPage extends React.Component {
     constructor(props) {
         super(props);
@@ -573,6 +585,40 @@ class PipelineListPage extends React.Component {
         });
     }
 
+    getStageStatusClass(stage) {
+        let anyFailed = false;
+        let anyCancelled = false;
+        let anyNotStarted = false;
+
+        for (const job of stage) {
+            const jobStatusClass = getJobStatusClass(job);
+
+            if (jobStatusClass === 'running') {
+                return 'running';
+            } else if (jobStatusClass === 'failed') {
+                anyFailed = true;
+            } else if (jobStatusClass === 'cancelled') {
+                anyCancelled = true;
+            } else if (jobStatusClass === 'not_started') {
+                anyNotStarted = true;
+            }
+        }
+
+        if (anyNotStarted) {
+            return 'not_started';
+        }
+
+        if (anyCancelled) {
+            return 'cancelled';
+        }
+
+        if (anyFailed) {
+            return 'failed';
+        }
+
+        return 'succeded';
+    }
+
     makePipelineElement(pipeline, index) {
         const status = PIPELINE_STATUS_DESCRIPTION[pipeline.status];
         const statusClass = getPipelineStatusClass(pipeline.status);
@@ -581,12 +627,15 @@ class PipelineListPage extends React.Component {
         const stages = topologicalSort(transformToChildrenGraph(pipeline.jobs));
         const stagesElements = stages.map((stage, i) => {
             const jobsElements = stage.map((job, i) => {
-                return <Link to={`/job/${job.id}`} key={i}>{job.name}</Link>;
+                return <JobLink job={job} key={i}/>
             });
+            const statusClass = this.getStageStatusClass(stage);
 
             return (
                 <div className='pipeline_list_dropdown_container' key={i}>
-                    <button onClick={this.toggleDropdown.bind(this, pipeline.id, i)}>
+                    <button
+                        className={statusClass}
+                        onClick={this.toggleDropdown.bind(this, pipeline.id, i)}>
                         {`stage_${i}`}
                     </button>
                     {(this.state.pipelineIdDropdownOpen === pipeline.id &&
@@ -606,6 +655,7 @@ class PipelineListPage extends React.Component {
                 </td>
                 <td className={statusClass}>{status}</td>
                 <td>
+                    {/* TODO: deal with overflow */}
                     <div className='pipeline_list_stages_box'>
                         {stagesElements}
                     </div>
@@ -621,7 +671,7 @@ class PipelineListPage extends React.Component {
         // TODO:
         //   1. paging
         //   2. search
-        //   3. actions - update, cancel, start, restart
+        //   3. actions - update, start, restart
         //   4. uptime
         //   5. show status of individual stages and also steps in each stage
         const elements = this.state.data.reverse().map(this.makePipelineElement.bind(this));
@@ -662,6 +712,20 @@ function getJobStatusClass(job) {
         return 'succeded';
     } else {
         return 'cancelled';
+    }
+}
+
+function getIconClassFromStatusClass(statusClass) {
+    if (statusClass === 'not_started') {
+        return 'fa-stopwatch';
+    } else if (statusClass === 'running') {
+        return 'fa-clock';
+    } else if (statusClass === 'failed') {
+        return 'fa-times';
+    } else if (statusClass === 'succeded') {
+        return 'fa-check';
+    } else {
+        return 'fa-ban';
     }
 }
 
@@ -942,11 +1006,13 @@ class PipelinePage extends React.Component {
         // NOTE: See the NOTE: in PipelineListPage
         this.intervalId = setInterval(async () => await this.refreshPipeline(), 1000);
         await this.refreshPipeline()
-        this.setState({graphBoxHeight: this.graphBox.current.offsetHeight});
+        // we use `scrollHeight` because it doesn't count the scrollbar's height
+        this.setState({graphBoxHeight: this.graphBox.current.scrollHeight});
     }
 
     componentDidUpdate(prevProps, prevState, snapshot) {
-        const newGraphBoxHeight = this.graphBox.current.offsetHeight;
+        // we use `scrollHeight` because it doesn't count the scrollbar's height
+        const newGraphBoxHeight = this.graphBox.current.scrollHeight;
 
         if (prevState.graphBoxHeight !== this.state.graphBoxHeight) {
             this.setState({graphBoxHeight: newGraphBoxHeight});
@@ -971,7 +1037,7 @@ class PipelinePage extends React.Component {
             const jobNodes = stage.map((job, i) => {
                 return (
                     <div className='pipeline_graph_node' key={i}>
-                        <Link to={`/job/${job.id}`}>{job.name}</Link>
+                        <JobLink job={job}/>
                     </div>
                 );
             });

@@ -1,0 +1,147 @@
+{
+  "name": "deep_deps_pipeline",
+  "jobs": [
+    {
+      "name": "main_1",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_2",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_3",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_4",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_5",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_6",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_7",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_8",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_9",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_10",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_11",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_12",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "main_13",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/printer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    }
+  ],
+  "parents": {
+    "main_13": [
+      "main_12"
+    ],
+    "main_12": [
+      "main_11"
+    ],
+    "main_11": [
+      "main_10"
+    ],
+    "main_10": [
+      "main_9"
+    ],
+    "main_9": [
+      "main_8"
+    ],
+    "main_8": [
+      "main_7"
+    ],
+    "main_7": [
+      "main_6"
+    ],
+    "main_6": [
+      "main_5"
+    ],
+    "main_5": [
+      "main_4"
+    ],
+    "main_4": [
+      "main_3"
+    ],
+    "main_3": [
+      "main_2"
+    ],
+    "main_2": [
+      "main_1"
+    ]
+  }
+}

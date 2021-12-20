@@ -218,6 +218,15 @@ html, body {
 .pipeline_job_graph_box {
     display: flex;
     flex-direction: row;
+    overflow: auto;
+}
+
+.pipeline_job_graph_box > * {
+    flex: 0 0 auto;
+}
+
+.pipeline_job_graph_box > svg {
+    flex-basis: 50px;
 }
 
 .pipeline_graph_stage_box {
@@ -241,6 +250,18 @@ html, body {
 .pipeline_list_stages_box {
     display: flex;
     flex-direction: row;
+}
+
+.job_link {
+    text-decoration: none;
+}
+
+.job_link span {
+    padding-left: 5px;
+    font-weight: normal;
+    font-size: large;
+    white-space: nowrap;
+    text-align: left;
 }
 
 /*
