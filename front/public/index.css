@@ -144,6 +144,7 @@ html, body {
     margin-top: 0;
     margin-right: 10px;
     margin-bottom: 16px;
+    overflow: auto;
 }
 
 .job_info_pane {
@@ -299,4 +300,53 @@ html, body {
 .pipeline_list_dropdown_container > div > a + a {
     border-top-style: solid;
     border-top-width: 1px;
+}
+
+.pipeline_list_creation_container {
+    display: inline-block;
+    padding: 10px;
+    margin: 20px;
+    border-style: solid;
+    border-width: 4px;
+    border-color: #6e78c9;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.pipeline_list_creation_container > div {
+    display: flex;
+    flex-direction: row;
+}
+
+.pipeline_list_creation_container > div > label {
+    padding-right: 15px;
+    margin-top: 3px;
+    text-align: center;
+    font-size: large;
+}
+
+.pipeline_list_creation_container > div > input {
+    text-align: center;
+    font-size: large;
+}
+
+.pipeline_list_creation_container > span {
+    display: block;
+    text-align: center;
+    color: red;
+    margin: 10px 0;
+    white-space: pre-line;
+}
+
+.pipeline_list_creation_container > button {
+    display: block;
+    text-align: center;
+    margin: 0;
+    width: 100%;
+    font-size: medium;
+    padding: 10px 0;
+    border-style: solid;
+    border-width: 1px;
+    border-color: #2b6cd7;
 }

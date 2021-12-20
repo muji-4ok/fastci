@@ -1,6 +1,10 @@
+import json
+
 from django.contrib.auth.models import User
+from django.db import transaction
 from rest_framework import viewsets, mixins
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -47,6 +51,7 @@ class CreateUserViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 # Order matters!
 @api_view()
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def update_job_view(request: Request, job_id: int) -> Response:
     # TODO: handle errors
     tasks.update_job.delay(job_id)
@@ -64,4 +69,21 @@ def current_user_view(request: Request) -> Response:
 def cancel_job_view(request: Request, job_id: int) -> Response:
     # TODO: handle errors
     tasks.cancel_job.delay(job_id)
+    return Response()
+
+
+@api_view()
+@permission_classes([IsAuthenticated])
+def cancel_pipeline_view(request: Request, pipeline_id: int) -> Response:
+    # TODO: handle errors
+    tasks.cancel_pipeline.delay(pipeline_id)
+    return Response()
+
+
+@api_view(['POST'])
+@parser_classes([JSONParser])
+@permission_classes([IsAuthenticated])
+def create_pipeline_view(request: Request) -> Response:
+    # TODO: handle errors
+    tasks.create_pipeline_from_json.delay(json.dumps(request.data))
     return Response()

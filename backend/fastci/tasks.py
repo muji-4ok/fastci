@@ -14,6 +14,7 @@ import django
 
 django.setup()
 
+from django.db import transaction
 from django.db.models import Q
 from . import models
 from . import jobs
@@ -113,6 +114,14 @@ def cancel_job(job_model_id: int):
 @app.task
 def cancel_pipeline(pipeline_model_id: int):
     pipeline = models.Pipeline.objects.get(pk=pipeline_model_id)
+
+    if pipeline.status == models.PipelineStatus.FINISHED or pipeline.status == models.PipelineStatus.FAILED:
+        logger.warning('Trying to cancel an already finished pipeline')
+        return
+    elif pipeline.status == models.PipelineStatus.CANCELLED:
+        logger.warning('Trying to cancel an already cancelled pipeline')
+        return
+
     pipeline.status = models.PipelineStatus.CANCELLED
     pipeline.save()
 
@@ -123,6 +132,7 @@ def cancel_pipeline(pipeline_model_id: int):
 
 
 @app.task
+@transaction.atomic
 def create_pipeline_from_json(json_str: str) -> int:
     # TODO: we pass the json already, so maybe we can somehow tell celery not to serialize any more
     data = json.loads(json_str)
@@ -136,8 +146,9 @@ def create_pipeline_from_json(json_str: str) -> int:
         jobs_names[job.name] = job
         job.save()
 
-    for child_name, parent_names in data['parents'].items():
-        jobs_names[child_name].parents.set([jobs_names[parent_name] for parent_name in parent_names])
+    if 'parents' in data:
+        for child_name, parent_names in data['parents'].items():
+            jobs_names[child_name].parents.set([jobs_names[parent_name] for parent_name in parent_names])
 
     for job in jobs_names.values():
         job.save()

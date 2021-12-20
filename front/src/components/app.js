@@ -65,19 +65,10 @@ function Header() {
 
 async function loginViaJWT(username, password) {
     // The / at the end is needed for django for some reason
-    const url = `${API_BASE}/api/token/`;
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'Application/json'
-        },
-        body: JSON.stringify({
-            username: username,
-            password: password
-        })
+    const response = await doCallPostApi('api/token/', {
+        username: username,
+        password: password
     });
-
     const data = await response.json();
 
     if (response.status === 401) {
@@ -89,21 +80,24 @@ async function loginViaJWT(username, password) {
     }
 }
 
+async function doCallPostApi(path, data, extraHeaders = {}) {
+    // Low-level call - doesn't do any auth. Just calls fetch with POST, sets content-type and
+    // does JSON.stringify.
+    // Returns response
+    const url = `${API_BASE}/${path}`;
+
+    return await fetch(url, {
+        method: 'POST',
+        headers: {...extraHeaders, 'Content-Type': 'Application/json'},
+        body: JSON.stringify(data)
+    });
+}
+
 async function refreshAccessToken() {
-    // The / at the end is needed for django for some reason
-    const url = `${API_BASE}/api/token/refresh/`
     const refreshToken = window.localStorage.getItem('REFRESH_TOKEN') || '';
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'Application/json',
-        },
-        body: JSON.stringify({
-            refresh: refreshToken
-        })
-    });
-
+    // The / at the end is needed for django for some reason
+    const response = await doCallPostApi('api/token/refresh/', {refresh: refreshToken});
     const data = await response.json();
 
     if (response.status === 401) {
@@ -120,22 +114,13 @@ async function refreshAccessToken() {
 
 async function signUp(firstName, lastName, username, email, password) {
     // The / at the end is needed for django for some reason
-    const url = `${API_BASE}/fastci/api/create_user/`;
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'Application/json'
-        },
-        body: JSON.stringify({
-            username: username,
-            first_name: firstName,
-            last_name: lastName,
-            email: email,
-            password: password
-        })
+    const response = await doCallPostApi('fastci/api/create_user/', {
+        username: username,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        password: password
     });
-
     const data = await response.json();
 
     if (response.status === 201) {
@@ -169,11 +154,39 @@ async function doCallApi(path) {
     // low level call - returns the response, doesn't try to refresh the token, just passes the
     // stored access token
     const url = `${API_BASE}/${path}`;
+    return await fetch(url, {headers: makeAuthHeaders()});
+}
+
+function makeAuthHeaders() {
     const accessToken = window.localStorage.getItem('ACCESS_TOKEN') || '';
-    const headers = {
+    return {
         Authorization: `Bearer ${accessToken}`
     };
-    return await fetch(url, {headers});
+}
+
+// TODO: Refactor all of the api fetching functions to be more understandable
+async function fetchResponseFromPostApi(path, data) {
+    // Returns the response, doesn't read the data
+    let response = await doCallPostApi(path, data, makeAuthHeaders());
+
+    if (response.status === 401) {
+        const refreshed = await refreshAccessToken();
+
+        if (!refreshed) {
+            return null;
+        } else {
+            response = await doCallPostApi(path, data, makeAuthHeaders());
+
+            // It may so happen that the token is valid and refreshes with no problems, but the user
+            // linked to this token no longer exists. And so the backend will reject our attempt
+            // only at this point.
+            if (response.status === 401) {
+                return null;
+            }
+        }
+    }
+
+    return response;
 }
 
 async function fetchDataFromApi(path) {
@@ -220,7 +233,7 @@ function LoginPage() {
         : 'You need to login to view this page!';
     let [error, setError] = React.useState(initialMessage);
 
-    const handle_submit = async (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault();
 
         if (!username) {
@@ -245,7 +258,7 @@ function LoginPage() {
     return (
         <div className='submit_form'>
             <p>FastCI</p>
-            <form onSubmit={handle_submit}>
+            <form onSubmit={handleSubmit}>
                 <div>
                     <label>Username:</label>
                     <input
@@ -282,7 +295,7 @@ function RegisterPage() {
     let [confirmPassword, setConfirmPassword] = React.useState('');
     let [error, setError] = React.useState('\u200b');
 
-    const handle_submit = async (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault();
 
         // not sure if all this validation is needed
@@ -335,7 +348,7 @@ function RegisterPage() {
     return (
         <div className='submit_form'>
             <p>FastCI register</p>
-            <form onSubmit={handle_submit}>
+            <form onSubmit={handleSubmit}>
                 <div>
                     <label>First name:</label>
                     <input
@@ -409,8 +422,62 @@ function MainPage() {
     );
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+function PipelineCreatePage(props) {
+    let {refreshList} = props;
+    let [file, setFile] = React.useState(null);
+    let [error, setError] = React.useState('\u200b');
+
+    async function handleSubmit(event) {
+        let text = '';
+
+        // In theory, this logic can be very cleanly expressed with Promises and then/catch, but
+        // the API sucks ass
+        try {
+            text = await file.text();
+        } catch (e) {
+            setError('Failed reading file');
+            return;
+        }
+
+        let data = null;
+
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            setError('Failed to parse json');
+            return;
+        }
+
+        // The / at the end is needed for django for some reason
+        let response = await fetchResponseFromPostApi('fastci/api/create_pipeline/', data);
+
+        if (response.status === 200) {
+            // TODO: make a toast?
+            await refreshList;
+            setError('\u200b');
+        } else if (response.status === 400) {
+            let responseData = await response.json();
+            setError(responseData['detail']);
+        } else {
+            console.log(response);
+            setError('Failed to call api');
+        }
+    }
+
+    return (
+        <div className='pipeline_list_creation_container'>
+            <div>
+                <label>Pipeline config:</label>
+                <input
+                    type='file'
+                    accept='application/json'
+                    onChange={(event) => setFile(event.target.files[0])}
+                />
+            </div>
+            <span>{error}</span>
+            <button type='submit' onClick={handleSubmit}>Create pipeline</button>
+        </div>
+    );
 }
 
 class PipelineListPage extends React.Component {
@@ -440,6 +507,16 @@ class PipelineListPage extends React.Component {
         // @Speed - copying this each time just doesn't feel right
         let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
         this.setState({data: dataWithJobsTransformed});
+    }
+
+    async cancelPipeline(pipeline_id) {
+        if (await fetchDataFromApi(`fastci/api/cancel_pipeline/${pipeline_id}`) === null) {
+            // TODO: Make a toast
+            console.log('Failed to cancel pipeline!');
+            return;
+        }
+
+        await this.refreshList();
     }
 
     async componentDidMount() {
@@ -533,6 +610,9 @@ class PipelineListPage extends React.Component {
                         {stagesElements}
                     </div>
                 </td>
+                <td>
+                    <button onClick={this.cancelPipeline.bind(this, pipeline.id)}>Cancel</button>
+                </td>
             </tr>
         );
     }
@@ -548,13 +628,15 @@ class PipelineListPage extends React.Component {
 
         return (
             <RequiresLogin>
-                <table className="simple_table">
+                <PipelineCreatePage refreshList={this.refreshList.bind(this)}/>
+                <table className='simple_table'>
                     <thead>
                     <tr>
                         <th>Id</th>
                         <th>Name</th>
                         <th>Status</th>
                         <th>Jobs</th>
+                        <th>Actions</th>
                     </tr>
                     </thead>
                     <tbody>
