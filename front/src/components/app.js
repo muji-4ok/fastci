@@ -422,10 +422,11 @@ class PipelineListPage extends React.Component {
         this.state = {
             data: [],
             pipelineIdDropdownOpen: null,
-            stageIndexDropdownOpen: null,
-            intervalId: null
+            stageIndexDropdownOpen: null
         };
     }
+
+    static intervalId = null;
 
     async refreshList() {
         let data = await fetchDataFromApi('fastci/api/pipeline_list');
@@ -444,33 +445,27 @@ class PipelineListPage extends React.Component {
     async componentDidMount() {
         // NOTE: componentDidMount and componentWillUnmount are, strangely enough, executed
         //       concurrently. And we need setInterval to fire before clearInterval. But js doesn't
-        //       have any locks, which is strange... So we need to rely on the fact that js is
-        //       run in a single thread, that componentDidMount is scheduled before
-        //       compontWillUnmount, js has cooperative concurrency (NOT SURE ABOUT THIS ONE) and
-        //       that setInterval and such don't cause context switching. Taking all of this into
-        //       consideration, we can conclude that this code below is (hopefully) correct
-        const intervalId = setInterval(async () => await this.refreshList(), 1000);
-        this.setState({intervalId});
+        //       have any locks, which is strange... So we need to rely on the fact that js is run
+        //       in a single thread, that componentDidMount is scheduled before compontWillUnmount,
+        //       js has cooperative concurrency (NOT SURE ABOUT THIS ONE) and that setInterval and
+        //       such don't cause context switching. Another thing is that react is fucking
+        //       retarted, no other way of saying it. State changes in componentDidMount are not
+        //       visible in componentWillUnmount for some stupid fucking reason... Thus we need to
+        //       use different storage for the interval id - static variables for example, because I
+        //       don't give a shit and fuck js. Taking all of this into consideration, we can
+        //       conclude that this code below is (hopefully) correct
+        this.intervalId = setInterval(async () => await this.refreshList(), 1000);
         await this.refreshList()
     }
 
     componentWillUnmount() {
-        clearInterval(this.state.intervalId);
-    }
-
-    getStageStatus(stage, pipelineStatus) {
-        // returns pipeline status
-
-        for (const job of stage) {
-
-        }
-        // const jobNodes = stage.map((job, i) => {
+        clearInterval(this.intervalId);
     }
 
     // `bind` prepends any additional arguments, so these identification args must precede `event`
     toggleDropdown(pipelineId, stageIndex, event) {
         // TODO: might be useful if I add hideDropdown, which isn't used yet
-        event.stopPropagation();
+        // event.stopPropagation();
 
         // TODO: is this needed?
         event.preventDefault();
@@ -591,8 +586,10 @@ function getJobStatusClass(job) {
 class JobListPage extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {data: [], intervalId: null};
+        this.state = {data: []};
     }
+
+    static intervalId = null;
 
     async refreshList() {
         const data = await fetchDataFromApi('fastci/api/job_list');
@@ -608,13 +605,12 @@ class JobListPage extends React.Component {
 
     async componentDidMount() {
         // NOTE: See the NOTE: in PipelineListPage
-        const intervalId = setInterval(async () => await this.refreshList(), 1000);
-        this.setState({intervalId});
+        this.intervalId = setInterval(async () => await this.refreshList(), 1000);
         await this.refreshList()
     }
 
     componentWillUnmount() {
-        clearInterval(this.state.intervalId);
+        clearInterval(this.intervalId);
     }
 
     async updateJob(job_id) {
@@ -722,10 +718,11 @@ class JobPage extends React.Component {
             status: 0,
             error: '',
             exit_code: null,
-            output: '',
-            intervalId: null
+            output: ''
         };
     }
+
+    static intervalId = null;
 
     async refreshJob() {
         const data = await fetchDataFromApi(`fastci/api/job/${this.state.id}`);
@@ -741,13 +738,12 @@ class JobPage extends React.Component {
 
     async componentDidMount() {
         // NOTE: See the NOTE: in PipelineListPage
-        const intervalId = setInterval(async () => await this.refreshJob(), 1000);
-        this.setState({intervalId});
+        this.intervalId = setInterval(async () => await this.refreshJob(), 1000);
         await this.refreshJob()
     }
 
     componentWillUnmount() {
-        clearInterval(this.state.intervalId);
+        clearInterval(this.intervalId);
     }
 
     makeBasicInfoElement(name, value) {
@@ -840,11 +836,12 @@ class PipelinePage extends React.Component {
             name: '',
             status: 0,
             jobs: [],
-            graphBoxHeight: 0,
-            intervalId: null
+            graphBoxHeight: 0
         }
         this.graphBox = React.createRef();
     }
+
+    static intervalId = null;
 
     async refreshPipeline() {
         const data = await fetchDataFromApi(`fastci/api/pipeline/${this.state.id}`);
@@ -861,8 +858,7 @@ class PipelinePage extends React.Component {
 
     async componentDidMount() {
         // NOTE: See the NOTE: in PipelineListPage
-        const intervalId = setInterval(async () => await this.refreshPipeline(), 1000);
-        this.setState({intervalId});
+        this.intervalId = setInterval(async () => await this.refreshPipeline(), 1000);
         await this.refreshPipeline()
         this.setState({graphBoxHeight: this.graphBox.current.offsetHeight});
     }
@@ -876,7 +872,7 @@ class PipelinePage extends React.Component {
     }
 
     componentWillUnmount() {
-        clearInterval(this.state.intervalId);
+        clearInterval(this.intervalId);
     }
 
     render() {
