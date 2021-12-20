@@ -485,10 +485,20 @@ function JobLink(props) {
     const statusClass = getJobStatusClass(job);
 
     return (
-        <Link to={`/job/${job.id}`} className={`job_link ${statusClass}`}>
-            <i className={`fas ${getIconClassFromStatusClass(statusClass)}`}/>
-            <span>{job.name}</span>
-        </Link>
+        <div className='job_link'>
+            <Link to={`/job/${job.id}`} className={statusClass}>
+                <i className={`fas ${getIconClassFromStatusClass(statusClass)}`}/>
+                <span>{job.name}</span>
+            </Link>
+            <div>
+                <i className='fas fa-sync running' onClick={updateJob.bind(null, job.id)}>
+                    <span>Update</span>
+                </i>
+                <i className='fas fa-ban cancelled' onClick={cancelJob.bind(null, job.id)}>
+                    <span>Cancel</span>
+                </i>
+            </div>
+        </div>
     );
 }
 
@@ -636,7 +646,7 @@ class PipelineListPage extends React.Component {
                     <button
                         className={statusClass}
                         onClick={this.toggleDropdown.bind(this, pipeline.id, i)}>
-                        {`stage_${i}`}
+                        {`Stage ${i + 1}`}
                     </button>
                     {(this.state.pipelineIdDropdownOpen === pipeline.id &&
                         this.state.stageIndexDropdownOpen === i) ?
@@ -729,6 +739,22 @@ function getIconClassFromStatusClass(statusClass) {
     }
 }
 
+async function cancelJob(job_id) {
+    if (await fetchDataFromApi(`fastci/api/cancel_job/${job_id}`) === null) {
+        // TODO: Make a toast
+        console.log('Failed to cancel job!');
+        return;
+    }
+}
+
+async function updateJob(job_id) {
+    if (await fetchDataFromApi(`fastci/api/update_job/${job_id}`) === null) {
+        // TODO: Make a toast
+        console.log('Failed to update job!');
+        return;
+    }
+}
+
 class JobListPage extends React.Component {
     constructor(props) {
         super(props);
@@ -759,26 +785,6 @@ class JobListPage extends React.Component {
         clearInterval(this.intervalId);
     }
 
-    async updateJob(job_id) {
-        if (await fetchDataFromApi(`fastci/api/update_job/${job_id}`) === null) {
-            // TODO: Make a toast
-            console.log('Failed to update job!');
-            return;
-        }
-
-        await this.refreshList();
-    }
-
-    async cancelJob(job_id) {
-        if (await fetchDataFromApi(`fastci/api/cancel_job/${job_id}`) === null) {
-            // TODO: Make a toast
-            console.log('Failed to cancel job!');
-            return;
-        }
-
-        await this.refreshList();
-    }
-
     makeJobElement(job, index) {
         const status = JOB_STATUS_DESCRIPTION[job.status];
         const statusClass = getJobStatusClass(job);
@@ -803,8 +809,18 @@ class JobListPage extends React.Component {
                 <td>{job.container_id.slice(0, 12)}</td>
                 <td>{job.uptime_secs.toFixed(2)}</td>
                 <td>
-                    <button onClick={this.updateJob.bind(this, job.id)}>Update</button>
-                    <button onClick={this.cancelJob.bind(this, job.id)}>Cancel</button>
+                    <button onClick={async (event) => {
+                        // TODO: remove this and use JobLink
+                        await updateJob(job.id);
+                        await this.refreshList();
+                    }}>Update
+                    </button>
+                    <button onClick={async (event) => {
+                        // TODO: remove this and use JobLink
+                        await cancelJob(job.id);
+                        await this.refreshList();
+                    }}>Cancel
+                    </button>
                 </td>
             </tr>
         );

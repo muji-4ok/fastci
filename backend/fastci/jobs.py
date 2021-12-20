@@ -104,7 +104,6 @@ class DockerJob:
             return time.time() - self.host_start_time_secs
 
     def cancel(self):
-        # TODO: maybe we'll need to update time here?
         if self.status == models.JobStatus.NOT_STARTED:
             self.status = models.JobStatus.CANCELLED
         elif self.status == models.JobStatus.RUNNING:
@@ -114,8 +113,8 @@ class DockerJob:
                 self.container.reload()
             except docker.errors.APIError as e:
                 if e.status_code == 409:
-                    logger.warning(f'Killing the container failed (while trying to cancel). '
-                                   f'[error={e}, id={self.container.id}]')
+                    logger.warning('Trying to cancel an already stopped container')
+                    self.update()
                 else:
                     raise
         else:

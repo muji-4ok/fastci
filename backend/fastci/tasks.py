@@ -175,8 +175,15 @@ def step_pipelines():
         assert jobs
 
         if all(job.is_complete() for job in jobs):
-            pipeline.status = models.PipelineStatus.FAILED if any(job.is_failed() for job in jobs) \
-                else models.PipelineStatus.FINISHED
+            # all jobs are either cancelled, transitively cancelled or successfull
+            if all(job.status == models.JobStatus.CANCELLED or job.status == models.JobStatus.DEPENDENCY_FAILED or
+                   job.is_successfull() for job in jobs):
+                pipeline.status = models.PipelineStatus.CANCELLED
+            elif any(job.is_failed() for job in jobs):
+                pipeline.status = models.PipelineStatus.FAILED
+            else:
+                pipeline.status = models.PipelineStatus.FINISHED
+
             pipeline.save()
         elif pipeline.status == models.PipelineStatus.NOT_STARTED:
             pipeline.status = models.PipelineStatus.RUNNING
