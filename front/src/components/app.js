@@ -118,8 +118,35 @@ async function refreshAccessToken() {
     }
 }
 
-async function signUp(firstName, lastName, username, password) {
-    return false;
+async function signUp(firstName, lastName, username, email, password) {
+    // The / at the end is needed for django for some reason
+    const url = `${API_BASE}/fastci/api/create_user/`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify({
+            username: username,
+            first_name: firstName,
+            last_name: lastName,
+            email: email,
+            password: password
+        })
+    });
+
+    const data = await response.json();
+
+    if (response.status === 201) {
+        await loginViaJWT(username, password);
+        return '';
+    } else {
+        // TODO: handle unexpected data
+        return Object.keys(data).map(
+            (name, i) => name + ': ' + data[name].join(' ')
+        ).join('\n');
+    }
 }
 
 function signOut() {
@@ -132,7 +159,8 @@ function isLoggedIn() {
         return false;
     }
 
-    // TODO: check that token is actually valid
+    // TODO: Check that token is actually valid. Or don't check? This is called on every page,
+    //       render. And I don't think we wan't to make an API call **every** time.
 
     return true;
 }
@@ -158,6 +186,13 @@ async function fetchDataFromApi(path) {
             return null;
         } else {
             response = await doCallApi(path);
+
+            // It may so happen that the token is valid and refreshes with no problems, but the user
+            // linked to this token no longer exists. And so the backend will reject our attempt
+            // only at this point.
+            if (response.status === 401) {
+                return null;
+            }
         }
     }
 
@@ -208,33 +243,29 @@ function LoginPage() {
     };
 
     return (
-        <div>
-            <div className='submit_form'>
-                <p className='form_title'>FastCI</p>
-                <form onSubmit={handle_submit}>
-                    <div className='form_field'>
-                        <label>Username:</label>
-                        <input
-                            type='text'
-                            value={username}
-                            onChange={(event) => setUsername(event.target.value)}
-                        />
-                    </div>
-                    <div className='form_field'>
-                        <label>Password:</label>
-                        <input
-                            type='password'
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                        />
-                    </div>
-                    <p className='form_error'>{error}</p>
-                    <div className='form_submit'>
-                        <button type='submit'>Login</button>
-                    </div>
-                </form>
-                <Link to='/register' state={(from === null) ? null : {from: from}}>Register</Link>
-            </div>
+        <div className='submit_form'>
+            <p>FastCI</p>
+            <form onSubmit={handle_submit}>
+                <div>
+                    <label>Username:</label>
+                    <input
+                        type='text'
+                        value={username}
+                        onChange={(event) => setUsername(event.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Password:</label>
+                    <input
+                        type='password'
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                    />
+                </div>
+                <span>{error}</span>
+                <button type='submit'>Login</button>
+            </form>
+            <Link to='/register' state={(from === null) ? null : {from: from}}>Register</Link>
         </div>
     );
 }
@@ -246,12 +277,15 @@ function RegisterPage() {
     let [firstName, setFirstName] = React.useState('');
     let [lastName, setLastName] = React.useState('');
     let [username, setUsername] = React.useState('');
+    let [email, setEmail] = React.useState('');
     let [password, setPassword] = React.useState('');
     let [confirmPassword, setConfirmPassword] = React.useState('');
     let [error, setError] = React.useState('\u200b');
 
     const handle_submit = async (event) => {
         event.preventDefault();
+
+        // not sure if all this validation is needed
 
         if (!firstName) {
             setError('You need to specify the first name!');
@@ -266,6 +300,11 @@ function RegisterPage() {
 
         if (!username) {
             setError('You need to specify the username!');
+            return;
+        }
+
+        if (!email) {
+            setError('You need to specify the email!');
             return;
         }
 
@@ -284,66 +323,71 @@ function RegisterPage() {
             return;
         }
 
-        if (await signUp(firstName, lastName, username, password)) {
+        const apiResultMessage = await signUp(firstName, lastName, username, email, password);
+
+        if (apiResultMessage === '') {
             navigate((from === null) ? '/' : from, {replace: true});
         } else {
-            // TODO: explain what went wrong
-            setError('Registration failed!');
+            setError(apiResultMessage);
         }
     };
 
     return (
-        <div>
-            <div className='submit_form'>
-                <p className='form_title'>FastCI register</p>
-                <form onSubmit={handle_submit}>
-                    <div className='form_field'>
-                        <label>First name:</label>
-                        <input
-                            type='text'
-                            value={firstName}
-                            onChange={(event) => setFirstName(event.target.value)}
-                        />
-                    </div>
-                    <div className='form_field'>
-                        <label>Last name:</label>
-                        <input
-                            type='text'
-                            value={lastName}
-                            onChange={(event) => setLastName(event.target.value)}
-                        />
-                    </div>
-                    <div className='form_field'>
-                        <label>Username:</label>
-                        <input
-                            type='text'
-                            value={username}
-                            onChange={(event) => setUsername(event.target.value)}
-                        />
-                    </div>
-                    <div className='form_field'>
-                        <label>Password:</label>
-                        <input
-                            type='password'
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                        />
-                    </div>
-                    <div className='form_field'>
-                        <label>Confirm password:</label>
-                        <input
-                            type='password'
-                            value={confirmPassword}
-                            onChange={(event) => setConfirmPassword(event.target.value)}
-                        />
-                    </div>
-                    <p className='form_error'>{error}</p>
-                    <div className='form_submit'>
-                        <button type='submit'>Register</button>
-                    </div>
-                </form>
-                <Link to='/login' state={(from === null) ? null : {from: from}}>Login</Link>
-            </div>
+        <div className='submit_form'>
+            <p>FastCI register</p>
+            <form onSubmit={handle_submit}>
+                <div>
+                    <label>First name:</label>
+                    <input
+                        type='text'
+                        value={firstName}
+                        onChange={(event) => setFirstName(event.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Last name:</label>
+                    <input
+                        type='text'
+                        value={lastName}
+                        onChange={(event) => setLastName(event.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Username:</label>
+                    <input
+                        type='text'
+                        value={username}
+                        onChange={(event) => setUsername(event.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Email:</label>
+                    <input
+                        type='text'
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Password:</label>
+                    <input
+                        type='password'
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Confirm password:</label>
+                    <input
+                        type='password'
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                    />
+                </div>
+                <span>{error}</span>
+                <button type='submit'>Register</button>
+            </form>
+            <Link to='/login' state={(from === null) ? null : {from: from}}>Login</Link>
         </div>
     );
 }
@@ -387,6 +431,7 @@ class PipelineListPage extends React.Component {
         let data = await fetchDataFromApi('fastci/api/pipeline_list');
 
         if (data === null) {
+            // TODO: Make a toast
             console.log('Failed to refresh pipeline list!');
             return;
         }
@@ -553,6 +598,7 @@ class JobListPage extends React.Component {
         const data = await fetchDataFromApi('fastci/api/job_list');
 
         if (data === null) {
+            // TODO: Make a toast
             console.log('Failed to refresh job list!');
             return;
         }
@@ -573,6 +619,7 @@ class JobListPage extends React.Component {
 
     async updateJob(job_id) {
         if (await fetchDataFromApi(`fastci/api/update_job/${job_id}`) === null) {
+            // TODO: Make a toast
             console.log('Failed to update job!');
             return;
         }
@@ -582,6 +629,7 @@ class JobListPage extends React.Component {
 
     async cancelJob(job_id) {
         if (await fetchDataFromApi(`fastci/api/cancel_job/${job_id}`) === null) {
+            // TODO: Make a toast
             console.log('Failed to cancel job!');
             return;
         }
@@ -683,6 +731,7 @@ class JobPage extends React.Component {
         const data = await fetchDataFromApi(`fastci/api/job/${this.state.id}`);
 
         if (data === null) {
+            // TODO: Make a toast
             console.log('Failed to refresh job!');
             return;
         }
@@ -801,6 +850,7 @@ class PipelinePage extends React.Component {
         const data = await fetchDataFromApi(`fastci/api/pipeline/${this.state.id}`);
 
         if (data === null) {
+            // TODO: Make a toast
             console.log('Failed to refresh pipeline!');
             return;
         }

@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.db import models
 from rest_framework import serializers
@@ -121,3 +122,13 @@ class CompletePipelineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pipeline
         fields = ['id', 'name', 'status', 'jobs']
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        # TODO: figure out how to prohibit creating a user with no first name, last name or email
+        fields = ['username', 'first_name', 'last_name', 'email', 'password']
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
