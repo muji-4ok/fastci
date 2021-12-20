@@ -72,6 +72,7 @@ class DockerJob:
         # TODO: Handle stdout/stderr. Also this is slow
         self.job_model.output = self.get_output().decode('utf-8')
 
+        self.job_model.host_start_time_secs = self.host_start_time_secs
         self.job_model.uptime_secs = self.uptime()
         self.job_model.error = self.get_error()
 
