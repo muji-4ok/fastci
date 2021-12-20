@@ -508,7 +508,7 @@ class PipelineListPage extends React.Component {
             });
 
             return (
-                <div className="pipeline_list_dropdown_container" key={i}>
+                <div className='pipeline_list_dropdown_container' key={i}>
                     <button onClick={this.toggleDropdown.bind(this, pipeline.id, i)}>
                         {`stage_${i}`}
                     </button>
@@ -529,7 +529,7 @@ class PipelineListPage extends React.Component {
                 </td>
                 <td className={statusClass}>{status}</td>
                 <td>
-                    <div className="pipeline_list_stages_box">
+                    <div className='pipeline_list_stages_box'>
                         {stagesElements}
                     </div>
                 </td>
@@ -673,7 +673,7 @@ class JobListPage extends React.Component {
         // maybe remove container id?
         return (
             <RequiresLogin>
-                <table className="simple_table">
+                <table className='simple_table'>
                     <thead>
                     <tr>
                         <th>Id</th>
@@ -769,7 +769,7 @@ class JobPage extends React.Component {
 
     makeStatusElement(job) {
         return (
-            <div key="Status">
+            <div key='Status'>
                 <label>Status</label>
                 <label className={getJobStatusClass(job)}>
                     {JOB_STATUS_DESCRIPTION[job.status]}
@@ -801,9 +801,9 @@ class JobPage extends React.Component {
 
         return (
             <RequiresLogin>
-                <div className="job_page_container">
-                    <p className="console_output">{this.state.output}</p>
-                    <div className="job_info_pane">
+                <div className='job_page_container'>
+                    <p className='console_output'>{this.state.output}</p>
+                    <div className='job_info_pane'>
                         {info_elements}
                     </div>
                 </div>
@@ -888,14 +888,14 @@ class PipelinePage extends React.Component {
         for (const [i, stage] of Object.entries(stages)) {
             const jobNodes = stage.map((job, i) => {
                 return (
-                    <div className="pipeline_graph_node" key={i}>
+                    <div className='pipeline_graph_node' key={i}>
                         <Link to={`/job/${job.id}`}>{job.name}</Link>
                     </div>
                 );
             });
 
             graphSegments.push(
-                <div className="pipeline_graph_stage_box" key={`${i}_stage`}>
+                <div className='pipeline_graph_stage_box' key={`${i}_stage`}>
                     {jobNodes}
                 </div>
             );
@@ -942,10 +942,10 @@ class PipelinePage extends React.Component {
                         edges.push(
                             <path
                                 key={`${fromIdx}_${toIdx}`}
-                                stroke="#5f8ed2"
-                                fill="none"
+                                stroke='#5f8ed2'
+                                fill='none'
                                 strokeWidth={2 / norm}
-                                markerEnd="url(#triangle)"
+                                markerEnd='url(#triangle)'
                                 d={`M 0 ${fromY / norm} C 0.5 ${fromY / norm} 0.5 ${toY / norm} 1 ${toY / norm}`}
                             />
                         );
@@ -953,15 +953,15 @@ class PipelinePage extends React.Component {
                 }
 
                 graphSegments.push(
-                    <svg key={`${i}_edges`} preserveAspectRatio="none"
+                    <svg key={`${i}_edges`} preserveAspectRatio='none'
                          viewBox={`0 0 1 1`}>
                         <defs>
-                            <marker id="triangle" viewBox="0 0 10 10"
-                                    refX="10" refY="5"
-                                    markerUnits="strokeWidth"
-                                    markerWidth="5" markerHeight="5"
-                                    orient="auto">
-                                <path d="M 0 2 L 10 5 L 0 8 z" fill="#6d716d"/>
+                            <marker id='triangle' viewBox='0 0 10 10'
+                                    refX='10' refY='5'
+                                    markerUnits='strokeWidth'
+                                    markerWidth='5' markerHeight='5'
+                                    orient='auto'>
+                                <path d='M 0 2 L 10 5 L 0 8 z' fill='#6d716d'/>
                             </marker>
                         </defs>
                         {edges}
@@ -972,7 +972,7 @@ class PipelinePage extends React.Component {
 
         return (
             <RequiresLogin>
-                <div className="pipeline_info_box">
+                <div className='pipeline_info_box'>
                     <div>
                         <label>Id</label>
                         <label>{this.state.id}</label>
@@ -988,7 +988,7 @@ class PipelinePage extends React.Component {
                         </label>
                     </div>
                 </div>
-                <div ref={this.graphBox} className="pipeline_job_graph_box">
+                <div ref={this.graphBox} className='pipeline_job_graph_box'>
                     {graphSegments}
                 </div>
             </RequiresLogin>
@@ -1003,7 +1003,7 @@ export default function App() {
     return (
         <BrowserRouter>
             <Header/>
-            <div className="content_container">
+            <div className='content_container'>
                 <Routes>
                     <Route path='/' element={<MainPage/>}/>
                     <Route path='/login' element={<LoginPage/>}/>
