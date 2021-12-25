@@ -131,6 +131,13 @@ def cancel_pipeline(pipeline_model_id: int):
         job.save()
 
 
+# Come up with more consistent naming
+@app.task
+def step_pipeline(pipeline_model_id: int):
+    pipeline = models.Pipeline.objects.get(pk=pipeline_model_id)
+    do_step_pipeline(pipeline)
+
+
 @app.task
 @transaction.atomic
 def create_pipeline_from_json(json_str: str) -> int:
@@ -157,6 +164,31 @@ def create_pipeline_from_json(json_str: str) -> int:
     return pipeline.pk
 
 
+def do_step_pipeline(pipeline: models.Pipeline):
+    for job in models.Job.objects.filter(pipeline=pipeline):
+        do_step_job(job)
+
+    # reading this again is inefficient
+    jobs = list(models.Job.objects.filter(pipeline=pipeline))
+    # make sure we have non-zero amount of jobs
+    assert jobs
+
+    if all(job.is_complete() for job in jobs):
+        # all jobs are either cancelled, transitively cancelled or successfull
+        if all(job.status == models.JobStatus.CANCELLED or job.status == models.JobStatus.DEPENDENCY_FAILED or
+               job.is_successfull() for job in jobs) and any(not job.is_successfull() for job in jobs):
+            pipeline.status = models.PipelineStatus.CANCELLED
+        elif any(job.is_failed() for job in jobs):
+            pipeline.status = models.PipelineStatus.FAILED
+        else:
+            pipeline.status = models.PipelineStatus.FINISHED
+
+        pipeline.save()
+    elif pipeline.status == models.PipelineStatus.NOT_STARTED:
+        pipeline.status = models.PipelineStatus.RUNNING
+        pipeline.save()
+
+
 @app.task
 def step_pipelines():
     # TODO: Real bad problems with concurrency. Right now we just run one worker with only one thread...
@@ -166,28 +198,7 @@ def step_pipelines():
                                                        Q(status=models.PipelineStatus.RUNNING))
 
     for pipeline in pipelines_to_step:
-        for job in models.Job.objects.filter(pipeline=pipeline):
-            do_step_job(job)
-
-        # reading this again is inefficient
-        jobs = list(models.Job.objects.filter(pipeline=pipeline))
-        # make sure we have non-zero amount of jobs
-        assert jobs
-
-        if all(job.is_complete() for job in jobs):
-            # all jobs are either cancelled, transitively cancelled or successfull
-            if all(job.status == models.JobStatus.CANCELLED or job.status == models.JobStatus.DEPENDENCY_FAILED or
-                   job.is_successfull() for job in jobs):
-                pipeline.status = models.PipelineStatus.CANCELLED
-            elif any(job.is_failed() for job in jobs):
-                pipeline.status = models.PipelineStatus.FAILED
-            else:
-                pipeline.status = models.PipelineStatus.FINISHED
-
-            pipeline.save()
-        elif pipeline.status == models.PipelineStatus.NOT_STARTED:
-            pipeline.status = models.PipelineStatus.RUNNING
-            pipeline.save()
+        do_step_pipeline(pipeline)
 
 
 @app.on_after_configure.connect

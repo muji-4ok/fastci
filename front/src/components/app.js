@@ -480,6 +480,16 @@ function PipelineCreatePage(props) {
     );
 }
 
+function ActionWithTooltip(props) {
+    let {onClick, iconClass, actionName} = props;
+
+    return (
+        <i className={`${iconClass} action_with_tooltip`} onClick={onClick}>
+            <span>{actionName}</span>
+        </i>
+    );
+}
+
 function JobLink(props) {
     const {job} = props;
     const statusClass = getJobStatusClass(job);
@@ -491,12 +501,10 @@ function JobLink(props) {
                 <span>{job.name}</span>
             </Link>
             <div>
-                <i className='fas fa-sync running' onClick={updateJob.bind(null, job.id)}>
-                    <span>Update</span>
-                </i>
-                <i className='fas fa-ban cancelled' onClick={cancelJob.bind(null, job.id)}>
-                    <span>Cancel</span>
-                </i>
+                <ActionWithTooltip onClick={updateJob.bind(null, job.id)}
+                                   iconClass='fas fa-sync running' actionName='Update'/>
+                <ActionWithTooltip onClick={cancelJob.bind(null, job.id)}
+                                   iconClass='fas fa-ban cancelled' actionName='Cancel'/>
             </div>
         </div>
     );
@@ -529,16 +537,6 @@ class PipelineListPage extends React.Component {
         // @Speed - copying this each time just doesn't feel right
         let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
         this.setState({data: dataWithJobsTransformed});
-    }
-
-    async cancelPipeline(pipeline_id) {
-        if (await fetchDataFromApi(`fastci/api/cancel_pipeline/${pipeline_id}`) === null) {
-            // TODO: Make a toast
-            console.log('Failed to cancel pipeline!');
-            return;
-        }
-
-        await this.refreshList();
     }
 
     async componentDidMount() {
@@ -671,7 +669,19 @@ class PipelineListPage extends React.Component {
                     </div>
                 </td>
                 <td>
-                    <button onClick={this.cancelPipeline.bind(this, pipeline.id)}>Cancel</button>
+                    <ActionWithTooltip
+                        onClick={async (event) => {
+                            await updatePipeline(pipeline.id);
+                            await this.refreshList();
+                        }}
+                        iconClass='fas fa-sync running'
+                        actionName='Update'/>
+                    <ActionWithTooltip
+                        onClick={async (event) => {
+                            await cancelPipeline(pipeline.id);
+                            await this.refreshList();
+                        }} iconClass='fas fa-ban cancelled'
+                        actionName='Cancel'/>
                 </td>
             </tr>
         );
@@ -742,16 +752,32 @@ function getIconClassFromStatusClass(statusClass) {
 async function cancelJob(job_id) {
     if (await fetchDataFromApi(`fastci/api/cancel_job/${job_id}`) === null) {
         // TODO: Make a toast
+        // TODO: Also make this throw an error
         console.log('Failed to cancel job!');
-        return;
     }
 }
 
 async function updateJob(job_id) {
     if (await fetchDataFromApi(`fastci/api/update_job/${job_id}`) === null) {
         // TODO: Make a toast
+        // TODO: Also make this throw an error
         console.log('Failed to update job!');
-        return;
+    }
+}
+
+async function cancelPipeline(pipeline_id) {
+    if (await fetchDataFromApi(`fastci/api/cancel_pipeline/${pipeline_id}`) === null) {
+        // TODO: Make a toast
+        // TODO: Also make this throw an error
+        console.log('Failed to cancel pipeline!');
+    }
+}
+
+async function updatePipeline(pipeline_id) {
+    if (await fetchDataFromApi(`fastci/api/update_pipeline/${pipeline_id}`) === null) {
+        // TODO: Make a toast
+        // TODO: Also make this throw an error
+        console.log('Failed to update pipeline!');
     }
 }
 
@@ -809,18 +835,19 @@ class JobListPage extends React.Component {
                 <td>{job.container_id.slice(0, 12)}</td>
                 <td>{job.uptime_secs.toFixed(2)}</td>
                 <td>
-                    <button onClick={async (event) => {
-                        // TODO: remove this and use JobLink
-                        await updateJob(job.id);
-                        await this.refreshList();
-                    }}>Update
-                    </button>
-                    <button onClick={async (event) => {
-                        // TODO: remove this and use JobLink
-                        await cancelJob(job.id);
-                        await this.refreshList();
-                    }}>Cancel
-                    </button>
+                    <ActionWithTooltip
+                        onClick={async (event) => {
+                            await updateJob(job.id);
+                            await this.refreshList();
+                        }}
+                        iconClass='fas fa-sync running'
+                        actionName='Update'/>
+                    <ActionWithTooltip
+                        onClick={async (event) => {
+                            await cancelJob(job.id);
+                            await this.refreshList();
+                        }} iconClass='fas fa-ban cancelled'
+                        actionName='Cancel'/>
                 </td>
             </tr>
         );

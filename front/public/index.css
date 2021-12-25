@@ -250,6 +250,7 @@ html, body {
     display: grid;
     grid: auto-flow dense / repeat(8, 1fr);
 }
+
 .job_link {
     display: flex;
     flex-direction: row;
@@ -274,13 +275,13 @@ html, body {
     text-align: right;
 }
 
-.job_link > div > i {
+.action_with_tooltip {
     position: relative;
     cursor: pointer;
     margin-left: 5px;
 }
 
-.job_link > div > i > span {
+.action_with_tooltip > span {
     font-weight: normal;
     display: none;
     position: absolute;
@@ -295,6 +296,10 @@ html, body {
     animation: 0.05s linear fade_in_bottom;
 }
 
+.action_with_tooltip:hover > span {
+    display: inline;
+}
+
 @keyframes fade_in_bottom {
     from {
         top: 170%;
@@ -302,10 +307,6 @@ html, body {
     to {
         top: 120%;
     }
-}
-
-.job_link > div > i:hover > span {
-    display: inline;
 }
 
 /*

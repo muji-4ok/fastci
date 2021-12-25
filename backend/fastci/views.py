@@ -81,6 +81,15 @@ def cancel_pipeline_view(request: Request, pipeline_id: int) -> Response:
     return Response()
 
 
+@api_view()
+@permission_classes([IsAuthenticated])
+def update_pipeline_view(request: Request, pipeline_id: int) -> Response:
+    # TODO: handle errors
+    # TODO: maybe wait for the task's result and send some reply?
+    tasks.step_pipeline.delay(pipeline_id)
+    return Response()
+
+
 @api_view(['POST'])
 @parser_classes([JSONParser])
 @permission_classes([IsAuthenticated])
