@@ -210,27 +210,39 @@ html, body {
 .pipeline_info_box > div > label:last-child {
     padding: 5px;
     flex: 1 0 auto;
-    white-space: normal;
+    white-space: nowrap;
     max-width: 250px;
 }
 
 .pipeline_job_graph_box {
+    position: relative;
+}
+
+.pipeline_job_graph_box > div {
     display: flex;
     flex-direction: row;
     overflow: auto;
+    /* We add padding so the tooltip for buttons won't cause the y scroll to appear */
+    padding-bottom: 15px;
 }
 
-.pipeline_job_graph_box > * {
+.pipeline_job_graph_box > div > div:nth-child(odd) {
     flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.pipeline_job_graph_box > div > div:nth-child(even) {
+    flex: 0 0 50px;
 }
 
 .pipeline_job_graph_box > svg {
-    flex-basis: 50px;
-}
-
-.pipeline_graph_stage_box {
-    display: flex;
-    flex-direction: column;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
 }
 
 .pipeline_graph_node {
