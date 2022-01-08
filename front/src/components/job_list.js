@@ -74,7 +74,7 @@ export default function JobListPage() {
     // TODO: paging
     // TODO: search
     // TODO: start, restart
-    const elements = data.reverse().map(makeJobElement);
+    const elements = data.slice().reverse().map(makeJobElement);
 
     // maybe remove container id?
     return (

@@ -131,10 +131,10 @@ export default function PipelineListPage() {
     // TODO:
     //   1. paging
     //   2. search
-    //   3. actions - update, start, restart
+    //   3. actions - start, restart
     //   4. uptime
     //   5. show status of individual stages and also steps in each stage
-    const elements = data.reverse().map(makePipelineElement);
+    const elements = data.slice().reverse().map(makePipelineElement);
 
     return (
         <RequiresLogin>
