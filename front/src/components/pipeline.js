@@ -2,174 +2,159 @@ import React from "react";
 import * as api from "../utils/api";
 import {topologicalSort, transformToChildrenGraph, transformToJobsDict} from "../utils/node";
 import * as status from "../utils/status";
-import {withRouter} from '../utils/route'
+import {useParams} from "react-router-dom";
 import JobLink from "./job_link";
 import RequiresLogin from "./requires_login";
 
-export default class PipelinePage extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            id: props.params.pipeline_id,
-            name: '',
-            status: 0,
-            jobs: [],
-        }
-    }
+export default function PipelinePage() {
+    const params = useParams();
+    const id = params.pipeline_id;
 
-    static intervalId = null;
+    let [name, setName] = React.useState('');
+    let [statusId, setStatusId] = React.useState(0);
+    let [jobs, setJobs] = React.useState([]);
+    let [nodeDimensions, setNodeDimensions] = React.useState({});
 
-    async refreshPipeline() {
-        const data = await api.fetchDataFromApi(`fastci/api/pipeline/${this.state.id}`);
+    // TODO: This piece of shit still doesn't work properly...
+    //       On a page refresh, edges don't update correctly right away
+    React.useEffect(() => {
+        async function refreshPipeline() {
+            const data = await api.fetchDataFromApi(`fastci/api/pipeline/${id}`);
 
-        if (data === null) {
-            // TODO: Make a toast
-            console.log('Failed to refresh pipeline!');
-            return;
-        }
-
-        // @Speed - copying this each time just doesn't feel right
-        this.setState({...transformToJobsDict(data)});
-    }
-
-    async componentDidMount() {
-        // NOTE: See the NOTE: in PipelineListPage
-        this.intervalId = setInterval(async () => await this.refreshPipeline(), 1000);
-        await this.refreshPipeline()
-    }
-
-    componentWillUnmount() {
-        clearInterval(this.intervalId);
-    }
-
-    render() {
-        // TODO: handle dependencies from earlier stages correctly
-        // TODO: test this on more examples
-
-        const statusClass = status.getPipelineStatusClass(this.state.status)
-        // @Speed - inefficient - copying and recalculating this here
-        const stages = topologicalSort(transformToChildrenGraph(this.state.jobs));
-
-        let graphSegments = [];
-
-        for (const [i, stage] of Object.entries(stages)) {
-            const jobNodes = stage.map((job, i) => {
-                return (
-                    <div className='pipeline_graph_node' key={i}>
-                        <JobLink job={job}/>
-                    </div>
-                );
-            });
-
-            graphSegments.push(
-                <div key={`${i}_stage`}>
-                    {jobNodes}
-                </div>
-            );
-
-            if (Number(i) !== stages.length - 1) {
-                graphSegments.push(<div key={`${i}_edges`}/>);
+            if (data === null) {
+                // TODO: Make a toast
+                console.log('Failed to refresh pipeline!');
+                return;
             }
 
-            // if (Number(i) !== stages.length - 1) {
-            //     let edges = [];
-            //
-            //     for (const [fromIdx, from] of Object.entries(stage)) {
-            //         // FIXME: if any of children are not in the next stage (which they definitely
-            //         //        don't always have to be in), this works incorrectly
-            //         for (const [toIdx, to] of Object.entries(from.children)) {
-            //             /*
-            //               Okay.
-            //               So.
-            //               These are some hacks... Why is all of this - I want the graph
-            //               edges to connect to graph nodes correctly (obviously). And the nodes are
-            //               from the html elements world, while the edges are from svg, which don't
-            //               really get along. The only way I can think of to make edges snap to nodes
-            //               is for me to specify the path offsets by hand, using the fact that all the
-            //               nodes' heights and margins are in pixels and thus all positions can be
-            //               calculated precisely. The obvious way to do this would be to set the
-            //               viewBox height of the svg to be the same as the containing box's height.
-            //               But that doesn't work, since updating the viewBox causes the svg element
-            //               to stretch, which causes the containing box to stretch, which causes the
-            //               viewBox to update and so on... And the solution is to set the viewBox to
-            //               be 0 0 1 1, and just divide all pixel values by the height of the box.
-            //               (P.S. I set the width of the viewBox to 1 just for consistency, it's not
-            //               actually necessary)
-            //               (P.P.S. I'm sure there are many other solutions, but all of the others
-            //               that I can think of are equally hacky)
-            //              */
-            //             const norm = this.state.graphBoxHeight;
-            //             const marginTop = 5;
-            //             const marginBot = 15;
-            //             const padding = 5;
-            //             const borderWidth = 4;
-            //             const textHeight = 20;
-            //             const offsetY = marginTop + padding + borderWidth + textHeight / 2;
-            //             const diffY = textHeight + padding * 2 + borderWidth * 2 + marginTop +
-            //                 marginBot;
-            //             const fromY = offsetY + diffY * fromIdx;
-            //             const toY = offsetY + diffY * toIdx;
-            //
-            //             edges.push(
-            //                 <path
-            //                     key={`${fromIdx}_${toIdx}`}
-            //                     stroke='#5f8ed2'
-            //                     fill='none'
-            //                     strokeWidth={2 / norm}
-            //                     markerEnd='url(#triangle)'
-            //                     d={`M 0 ${fromY / norm} C 0.5 ${fromY / norm} 0.5 ${toY / norm} 1 ${toY / norm}`}
-            //                 />
-            //             );
-            //         }
-            //     }
-            //
-            //     graphSegments.push(
-            //         <svg key={`${i}_edges`} preserveAspectRatio='none'
-            //              viewBox={`0 0 1 1`}>
-            //             <defs>
-            //                 <marker id='triangle' viewBox='0 0 10 10'
-            //                         refX='10' refY='5'
-            //                         markerUnits='strokeWidth'
-            //                         markerWidth='5' markerHeight='5'
-            //                         orient='auto'>
-            //                     <path d='M 0 2 L 10 5 L 0 8 z' fill='#6d716d'/>
-            //                 </marker>
-            //             </defs>
-            //             {edges}
-            //         </svg>
-            //     );
-            // }
+            // @Speed - copying this each time just doesn't feel right
+            const transformedData = transformToJobsDict(data);
+            setName(transformedData.name);
+            setStatusId(transformedData.status);
+            setJobs(transformedData.jobs);
         }
 
-        return (
-            <RequiresLogin>
-                <div className='pipeline_info_box'>
-                    <div>
-                        <label>Id</label>
-                        <label>{this.state.id}</label>
-                    </div>
-                    <div>
-                        <label>Name</label>
-                        <label>{this.state.name}</label>
-                    </div>
-                    <div>
-                        <label>Status</label>
-                        <label className={statusClass}>
-                            {status.PIPELINE_STATUS_DESCRIPTION[this.state.status]}
-                        </label>
-                    </div>
-                </div>
-                <div className='pipeline_job_graph_box'>
-                    {/*<svg preserveAspectRatio='none'>*/}
-                    {/*    <rect x='0' y='0' width='100%' height='100%' fill='red' opacity='0.5'/>*/}
-                    {/*</svg>*/}
-                    <div>
-                        {graphSegments}
-                    </div>
-                </div>
-            </RequiresLogin>
-        );
-    }
-}
+        let intervalId = setInterval(refreshPipeline, 1000);
+        // Ignoring for now
+        refreshPipeline();
 
-PipelinePage = withRouter(PipelinePage);
+        return () => clearInterval(intervalId);
+    }, [id]);
+
+    const statusClass = status.getPipelineStatusClass(statusId);
+    // @Speed - inefficient - copying and recalculating this here
+    const stages = topologicalSort(transformToChildrenGraph(jobs));
+
+    let graphSegments = [];
+    let edgePaths = [];
+
+    for (const [i, stage] of Object.entries(stages)) {
+        const jobNodes = stage.map((job, i) => {
+            return (
+                <div className='pipeline_graph_node' key={i}
+                     ref={elem => {
+                         if (!elem) {
+                             return;
+                         }
+
+                         let newDimensions = {...nodeDimensions};
+
+                         newDimensions[job.id] = {
+                             left: elem.offsetLeft,
+                             top: elem.offsetTop,
+                             width: elem.offsetWidth,
+                             height: elem.offsetHeight
+                         }
+
+                         if (!(job.id in nodeDimensions) ||
+                             (nodeDimensions[job.id].left !== newDimensions[job.id].left) ||
+                             (nodeDimensions[job.id].top !== newDimensions[job.id].top) ||
+                             (nodeDimensions[job.id].width !== newDimensions[job.id].width) ||
+                             (nodeDimensions[job.id].height !== newDimensions[job.id].height)) {
+                             setNodeDimensions(newDimensions);
+                         }
+                     }}>
+                    <JobLink job={job}/>
+                </div>
+            );
+        });
+
+        graphSegments.push(
+            <div key={`${i}_stage`}>{jobNodes}</div>
+        );
+
+        if (Number(i) !== stages.length - 1) {
+            graphSegments.push(<div key={`${i}_blank`}/>);
+        }
+
+        for (const from of stage) {
+            for (const to of from.children) {
+                if (!(from.id in nodeDimensions && to.id in nodeDimensions)) {
+                    continue;
+                }
+
+                const fromDims = nodeDimensions[from.id];
+                const toDims = nodeDimensions[to.id];
+
+                const fromX = fromDims.left + fromDims.width;
+                const fromY = fromDims.top + fromDims.height / 2;
+
+                const toX = toDims.left;
+                const toY = toDims.top + toDims.height / 2;
+
+                const midX = (fromX + toX) / 2;
+
+                edgePaths.push(
+                    <path
+                        key={`${from.id}_${to.id}`}
+                        stroke='#5f8ed2c7'
+                        fill='none'
+                        strokeWidth={2}
+                        markerEnd='url(#triangle)'
+                        d={`M ${fromX} ${fromY} C ${midX} ${fromY} ${midX} ${toY} ${toX} ${toY}`}
+                    />
+                );
+            }
+        }
+    }
+
+    return (
+        <RequiresLogin>
+            <div className='pipeline_info_box'>
+                <div>
+                    <label>Id</label>
+                    <label>{id}</label>
+                </div>
+                <div>
+                    <label>Name</label>
+                    <label>{name}</label>
+                </div>
+                <div>
+                    <label>Status</label>
+                    <label className={statusClass}>
+                        {status.PIPELINE_STATUS_DESCRIPTION[statusId]}
+                    </label>
+                </div>
+            </div>
+            <div className='pipeline_job_graph_box'>
+                {/*We need this proxy div so the nodes and the svg scroll in sync if there's an*/}
+                {/*overflow*/}
+                <div>
+                    <svg preserveAspectRatio='none'>
+                        <defs>
+                            <marker id='triangle' viewBox='0 0 10 10'
+                                    refX='10' refY='5'
+                                    markerUnits='strokeWidth'
+                                    markerWidth='5' markerHeight='5'
+                                    orient='auto'>
+                                <path d='M 0 2 L 10 5 L 0 8 z' fill='#6d716d'/>
+                            </marker>
+                        </defs>
+                        {edgePaths}
+                    </svg>
+                    <div>{graphSegments}</div>
+                </div>
+            </div>
+        </RequiresLogin>
+    );
+}

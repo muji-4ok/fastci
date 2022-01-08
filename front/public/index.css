@@ -216,28 +216,46 @@ html, body {
 }
 
 .pipeline_job_graph_box {
+    display: flex;
+    overflow: auto;
+    position: relative;
+    /* We add padding so the tooltip for buttons won't cause the scroll area to change */
+    padding-bottom: 15px;
+    padding-right: 15px;
+}
+
+/* Proxy */
+.pipeline_job_graph_box > div {
     position: relative;
 }
 
-.pipeline_job_graph_box > div {
+/* Container for stages and blank space between them */
+.pipeline_job_graph_box > div > div {
+    flex: 1 0 auto;
     display: flex;
     flex-direction: row;
-    overflow: auto;
-    /* We add padding so the tooltip for buttons won't cause the y scroll to appear */
-    padding-bottom: 15px;
 }
 
-.pipeline_job_graph_box > div > div:nth-child(odd) {
+/* Stage */
+.pipeline_job_graph_box > div > div > div:nth-child(odd) {
     flex: 0 0 auto;
     display: flex;
     flex-direction: column;
 }
 
-.pipeline_job_graph_box > div > div:nth-child(even) {
-    flex: 0 0 50px;
+/* Blank space */
+.pipeline_job_graph_box > div > div > div:nth-child(even) {
+    /*
+     * MANY FUCKING NIGHTS LATER: APPARENTLY, IF YOU SET FLEX-BASIS TO SOME CONSTANT AND DON'T SET
+     * THE ACTUAL WIDTH, THEN THIS WON'T FUCKING COUNT TOWARDS THE PARENT'S WIDTH.
+     * FUCKING PIECE OF SHIT...
+     */
+    width: 50px;
+    flex: 0 0 auto;
 }
 
-.pipeline_job_graph_box > svg {
+/* Svg with edges */
+.pipeline_job_graph_box > div > svg {
     position: absolute;
     top: 0;
     left: 0;
@@ -255,6 +273,7 @@ html, body {
     /* Border width 5px actually shows up as 4.66666667 */
     border-width: 4px;
     border-color: #2b6cd7;
+    background-color: white;
     white-space: nowrap;
     text-align: left;
 }
