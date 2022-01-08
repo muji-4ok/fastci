@@ -6,15 +6,10 @@ import ActionWithTooltip from "./action_with_tooltip";
 import {cancelJob, updateJob} from "../utils/action_api";
 import RequiresLogin from "./requires_login";
 
-export default class JobListPage extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {data: []};
-    }
+export default function JobListPage() {
+    let [data, setData] = React.useState([]);
 
-    static intervalId = null;
-
-    async refreshList() {
+    async function refreshList() {
         const data = await api.fetchDataFromApi('fastci/api/job_list');
 
         if (data === null) {
@@ -23,20 +18,18 @@ export default class JobListPage extends React.Component {
             return;
         }
 
-        this.setState({data: data});
+        setData(data);
     }
 
-    async componentDidMount() {
-        // NOTE: See the NOTE: in PipelineListPage
-        this.intervalId = setInterval(async () => await this.refreshList(), 1000);
-        await this.refreshList()
-    }
+    React.useEffect(() => {
+        let intervalId = setInterval(refreshList, 1000);
+        // Ignoring for now
+        refreshList();
 
-    componentWillUnmount() {
-        clearInterval(this.intervalId);
-    }
+        return () => clearInterval(intervalId);
+    }, []);
 
-    makeJobElement(job, index) {
+    function makeJobElement(job, index) {
         const statusDescription = status.JOB_STATUS_DESCRIPTION[job.status];
         const statusClass = status.getJobStatusClass(job);
 
@@ -63,14 +56,14 @@ export default class JobListPage extends React.Component {
                     <ActionWithTooltip
                         onClick={async (event) => {
                             await updateJob(job.id);
-                            await this.refreshList();
+                            await refreshList();
                         }}
                         iconClass='fas fa-sync running'
                         actionName='Update'/>
                     <ActionWithTooltip
                         onClick={async (event) => {
                             await cancelJob(job.id);
-                            await this.refreshList();
+                            await refreshList();
                         }} iconClass='fas fa-ban cancelled'
                         actionName='Cancel'/>
                 </td>
@@ -78,34 +71,31 @@ export default class JobListPage extends React.Component {
         );
     }
 
-    render() {
-        // TODO: paging
-        // TODO: search
-        // TODO: start, restart
-        const elements = this.state.data.reverse().map(this.makeJobElement.bind(this));
+    // TODO: paging
+    // TODO: search
+    // TODO: start, restart
+    const elements = data.reverse().map(makeJobElement);
 
-        // maybe remove container id?
-        return (
-            <RequiresLogin>
-                <table className='simple_table'>
-                    <thead>
-                    <tr>
-                        <th>Id</th>
-                        <th>Name</th>
-                        <th>Pipeline id</th>
-                        <th>Pipeline name</th>
-                        <th>Status</th>
-                        <th>Container id</th>
-                        <th>Uptime (in secs)</th>
-                        <th>Actions</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {elements}
-                    </tbody>
-                </table>
-            </RequiresLogin>
-        );
-    }
+    // maybe remove container id?
+    return (
+        <RequiresLogin>
+            <table className='simple_table'>
+                <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Name</th>
+                    <th>Pipeline id</th>
+                    <th>Pipeline name</th>
+                    <th>Status</th>
+                    <th>Container id</th>
+                    <th>Uptime (in secs)</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {elements}
+                </tbody>
+            </table>
+        </RequiresLogin>
+    );
 }
-
