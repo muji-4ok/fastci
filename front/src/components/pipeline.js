@@ -12,7 +12,7 @@ export default function PipelinePage() {
 
     let [name, setName] = React.useState('');
     let [statusId, setStatusId] = React.useState(0);
-    let [jobs, setJobs] = React.useState([]);
+    let [stages, setStages] = React.useState([]);
     let [nodeDimensions, setNodeDimensions] = React.useState({});
 
     // TODO: This piece of shit still doesn't work properly...
@@ -27,11 +27,10 @@ export default function PipelinePage() {
                 return;
             }
 
-            // @Speed - copying this each time just doesn't feel right
             const transformedData = transformToJobsDict(data);
             setName(transformedData.name);
             setStatusId(transformedData.status);
-            setJobs(transformedData.jobs);
+            setStages(topologicalSort(transformToChildrenGraph(transformedData.jobs)));
         }
 
         let intervalId = setInterval(refreshPipeline, 1000);
@@ -41,9 +40,28 @@ export default function PipelinePage() {
         return () => clearInterval(intervalId);
     }, [id]);
 
+    let nodesRef = React.useRef({});
+
+    React.useEffect(() => {
+        if (!nodesRef) {
+            return;
+        }
+        let newDimensions = {};
+
+
+        for (const [jobId, elem] of Object.entries(nodesRef.current)) {
+            newDimensions[jobId] = {
+                left: elem.offsetLeft,
+                top: elem.offsetTop,
+                width: elem.offsetWidth,
+                height: elem.offsetHeight
+            }
+        }
+
+        setNodeDimensions(newDimensions);
+    }, [stages]);
+
     const statusClass = status.getPipelineStatusClass(statusId);
-    // @Speed - inefficient - copying and recalculating this here
-    const stages = topologicalSort(transformToChildrenGraph(jobs));
 
     let graphSegments = [];
     let edgePaths = [];
@@ -52,28 +70,7 @@ export default function PipelinePage() {
         const jobNodes = stage.map((job, i) => {
             return (
                 <div className='pipeline_graph_node' key={i}
-                     ref={elem => {
-                         if (!elem) {
-                             return;
-                         }
-
-                         let newDimensions = {...nodeDimensions};
-
-                         newDimensions[job.id] = {
-                             left: elem.offsetLeft,
-                             top: elem.offsetTop,
-                             width: elem.offsetWidth,
-                             height: elem.offsetHeight
-                         }
-
-                         if (!(job.id in nodeDimensions) ||
-                             (nodeDimensions[job.id].left !== newDimensions[job.id].left) ||
-                             (nodeDimensions[job.id].top !== newDimensions[job.id].top) ||
-                             (nodeDimensions[job.id].width !== newDimensions[job.id].width) ||
-                             (nodeDimensions[job.id].height !== newDimensions[job.id].height)) {
-                             setNodeDimensions(newDimensions);
-                         }
-                     }}>
+                     ref={elem => nodesRef.current[job.id] = elem}>
                     <JobLink job={job}/>
                 </div>
             );
