@@ -1,15 +1,48 @@
 import React from "react";
 import * as api from "../utils/api";
-import {Link} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import * as status from "../utils/status";
-import {withRouter} from '../utils/route'
 import RequiresLogin from "./requires_login";
 
-export default class JobPage extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            id: this.props.params.job_id,
+function makeBasicInfoElement(name, value) {
+    return (
+        <div key={name}>
+            <label>{name}</label>
+            <label>{value}</label>
+        </div>
+    );
+}
+
+function makeLinkInfoElement(name, value, link) {
+    return (
+        <div key={name}>
+            <label>{name}</label>
+            <label>
+                {/* TODO: show name of pipeline */}
+                <Link to={link}>{value}</Link>
+            </label>
+        </div>
+    );
+}
+
+function makeStatusElement(job) {
+    return (
+        <div key='Status'>
+            <label>Status</label>
+            <label className={status.getJobStatusClass(job)}>
+                {status.JOB_STATUS_DESCRIPTION[job.status]}
+            </label>
+        </div>
+    );
+}
+
+export default function JobPage() {
+    // TODO: line numbers
+    const params = useParams();
+    const id = params.job_id;
+
+    let [jobData, setJobData] = React.useState({
+            id: id,
             name: '',
             pipeline: 0,
             container_id: '',
@@ -21,97 +54,54 @@ export default class JobPage extends React.Component {
             error: '',
             exit_code: null,
             output: ''
-        };
-    }
+        }
+    );
 
-    static intervalId = null;
+    React.useEffect(() => {
+        async function refreshJob() {
+            const data = await api.fetchDataFromApi(`fastci/api/job/${id}`);
 
-    async refreshJob() {
-        const data = await api.fetchDataFromApi(`fastci/api/job/${this.state.id}`);
+            if (data === null) {
+                // TODO: Make a toast
+                console.log('Failed to refresh job!');
+                return;
+            }
 
-        if (data === null) {
-            // TODO: Make a toast
-            console.log('Failed to refresh job!');
-            return;
+            setJobData(data);
         }
 
-        this.setState({...data});
-    }
+        let intervalId = setInterval(refreshJob, 1000);
+        // Ignoring for now
+        refreshJob();
 
-    async componentDidMount() {
-        // NOTE: See the NOTE: in PipelineListPage
-        this.intervalId = setInterval(async () => await this.refreshJob(), 1000);
-        await this.refreshJob()
-    }
+        return () => clearInterval(intervalId);
+    }, [id]);
 
-    componentWillUnmount() {
-        clearInterval(this.intervalId);
-    }
+    let info_elements = [
+        makeBasicInfoElement('Id', id),
+        makeBasicInfoElement('Name', jobData.name),
+        makeLinkInfoElement('Pipeline id', jobData.pipeline.id,
+            `/pipeline/${jobData.pipeline.id}`),
+        makeLinkInfoElement('Pipeline name', jobData.pipeline.name,
+            `/pipeline/${jobData.pipeline.id}`),
+        // TODO: do we need to slice the id?
+        makeBasicInfoElement('Container id', jobData.container_id.slice(0, 12)),
+        makeBasicInfoElement('Timeout (in secs)',
+            jobData.timeout_secs?.toFixed(2) ?? 'None'),
+        makeBasicInfoElement('Uptime (in secs)', jobData.uptime_secs.toFixed(2)),
+        makeStatusElement(jobData),
+        makeBasicInfoElement('Error', jobData.error || 'None'),
+        makeBasicInfoElement('Exit code', jobData.exit_code ?? 'None')
+    ];
 
-    makeBasicInfoElement(name, value) {
-        return (
-            <div key={name}>
-                <label>{name}</label>
-                <label>{value}</label>
-            </div>
-        );
-    }
-
-    makeLinkInfoElement(name, value, link) {
-        return (
-            <div key={name}>
-                <label>{name}</label>
-                <label>
-                    {/* TODO: show name of pipeline */}
-                    <Link to={link}>{value}</Link>
-                </label>
-            </div>
-        );
-    }
-
-    makeStatusElement(job) {
-        return (
-            <div key='Status'>
-                <label>Status</label>
-                <label className={status.getJobStatusClass(job)}>
-                    {status.JOB_STATUS_DESCRIPTION[job.status]}
-                </label>
-            </div>
-        );
-    }
-
-    render() {
-        // TODO: line numbers
-
-        let info_elements = [
-                this.makeBasicInfoElement('Id', this.state.id),
-                this.makeBasicInfoElement('Name', this.state.name),
-                this.makeLinkInfoElement('Pipeline id', this.state.pipeline.id,
-                    `/pipeline/${this.state.pipeline.id}`),
-                this.makeLinkInfoElement('Pipeline name', this.state.pipeline.name,
-                    `/pipeline/${this.state.pipeline.id}`),
-                // TODO: do we need to slice the id?
-                this.makeBasicInfoElement('Container id', this.state.container_id.slice(0, 12)),
-                this.makeBasicInfoElement('Timeout (in secs)',
-                    this.state.timeout_secs?.toFixed(2) ?? 'None'),
-                this.makeBasicInfoElement('Uptime (in secs)', this.state.uptime_secs.toFixed(2)),
-                this.makeStatusElement(this.state),
-                this.makeBasicInfoElement('Error', this.state.error || 'None'),
-                this.makeBasicInfoElement('Exit code', this.state.exit_code ?? 'None')
-            ]
-        ;
-
-        return (
-            <RequiresLogin>
-                <div className='job_page_container'>
-                    <p className='console_output'>{this.state.output}</p>
-                    <div className='job_info_pane'>
-                        {info_elements}
-                    </div>
+    return (
+        <RequiresLogin>
+            <div className='job_page_container'>
+                <p className='console_output'>{jobData.output}</p>
+                <div className='job_info_pane'>
+                    {info_elements}
                 </div>
-            </RequiresLogin>
-        );
-    }
+            </div>
+        </RequiresLogin>
+    );
 }
-
-JobPage = withRouter(JobPage);
