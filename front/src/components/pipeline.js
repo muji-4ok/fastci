@@ -6,6 +6,8 @@ import * as status from "../utils/status";
 import {useParams} from "react-router-dom";
 import JobLink from "./job_link";
 import RequiresLogin from "./requires_login";
+import ActionWithTooltip from "./action_with_tooltip";
+import {cancelPipeline, updatePipeline} from "../utils/action_api";
 
 export default function PipelinePage() {
     const params = useParams();
@@ -126,6 +128,20 @@ export default function PipelinePage() {
                     <label>Status</label>
                     <label className={statusClass}>
                         {status.PIPELINE_STATUS_DESCRIPTION[statusId]}
+                    </label>
+                </div>
+                <div>
+                    <label>Actions</label>
+                    {/*FIXME: label is redundant*/}
+                    <label>
+                        <ActionWithTooltip
+                            onClick={updatePipeline.bind(null, id)}
+                            iconClass='fas fa-sync running'
+                            actionName='Update'/>
+                        <ActionWithTooltip
+                            onClick={cancelPipeline.bind(null, id)}
+                            iconClass='fas fa-ban cancelled'
+                            actionName='Cancel'/>
                     </label>
                 </div>
             </div>

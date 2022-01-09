@@ -4,6 +4,8 @@ import {useWebsocketScheduler} from "../utils/api";
 import {Link, useParams} from "react-router-dom";
 import * as status from "../utils/status";
 import RequiresLogin from "./requires_login";
+import ActionWithTooltip from "./action_with_tooltip";
+import {cancelJob, updateJob} from "../utils/action_api";
 
 function makeBasicInfoElement(name, value) {
     return (
@@ -32,6 +34,26 @@ function makeStatusElement(job) {
             <label>Status</label>
             <label className={status.getJobStatusClass(job)}>
                 {status.JOB_STATUS_DESCRIPTION[job.status]}
+            </label>
+        </div>
+    );
+}
+
+
+function makeActionsElement(id) {
+    return (
+        <div key='Acitons'>
+            <label>Acitons</label>
+            {/*FIXME: label is redundant*/}
+            <label>
+                <ActionWithTooltip
+                    onClick={updateJob.bind(null, id)}
+                    iconClass='fas fa-sync running'
+                    actionName='Update'/>
+                <ActionWithTooltip
+                    onClick={cancelJob.bind(null, id)}
+                    iconClass='fas fa-ban cancelled'
+                    actionName='Cancel'/>
             </label>
         </div>
     );
@@ -75,6 +97,7 @@ export default function JobPage() {
     let info_elements = [
         makeBasicInfoElement('Id', id),
         makeBasicInfoElement('Name', jobData.name),
+        makeActionsElement(id),
         makeLinkInfoElement('Pipeline id', jobData.pipeline.id,
             `/pipeline/${jobData.pipeline.id}`),
         makeLinkInfoElement('Pipeline name', jobData.pipeline.name,
