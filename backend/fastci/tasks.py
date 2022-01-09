@@ -4,11 +4,12 @@ from typing import Optional
 
 import celery
 import docker.errors
+import redis
 from celery.signals import worker_init, beat_init
 from celery.utils.log import get_task_logger
 
 # required so models can be imported and all of the infrastructure works
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 
 import django
 
@@ -23,30 +24,43 @@ logger = get_task_logger(__name__)
 app = celery.Celery('fastci', broker='redis://', backend='redis://')
 
 # setup only in worker/beat
-client: Optional[docker.DockerClient]
-client = None
+docker_client: Optional[docker.DockerClient]
+docker_client = None
+redis_client: Optional[redis.Redis]
+redis_client = None
 
 
-def init_docker_client():
-    global client
-    client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
+def notify_of_change():
+    """
+    Notifies all subscribers that the state has changed
+    """
+    redis_client.publish('pipeline-job-state-change', 1)
+
+
+def init_clients():
+    global docker_client
+    docker_client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
     # FYI: logging is not setup at worker_init/beat_init
     print('Docker client running!')
+
+    global redis_client
+    redis_client = redis.Redis()  # default settings are fine
+    print('Redis client running!')
 
 
 @worker_init.connect
 def setup_globals_worker(sender, **kwargs):
-    init_docker_client()
+    init_clients()
 
 
 @beat_init.connect
 def setup_globals_beat(sender, **kwargs):
-    init_docker_client()
+    init_clients()
 
 
 def make_job_by_id(job_model_id: int) -> jobs.DockerJob:
     job_model = models.Job.objects.get(pk=job_model_id)
-    return jobs.DockerJob(client, job_model)
+    return jobs.DockerJob(docker_client, job_model)
 
 
 # Is this needed as a standalone task?
@@ -59,19 +73,13 @@ def create_job(name: str, pipeline_id: int, image: str, command: str, volumes: l
     Returns:
         id of the created Job model
     """
-    container = client.containers.create(image, command, detach=True, volumes=volumes)
+    container = docker_client.containers.create(image, command, detach=True, volumes=volumes)
     job = models.Job(name=name, pipeline=models.Pipeline.objects.get(pk=pipeline_id), container_id=container.id,
                      timeout_secs=timeout_secs)
     job.full_clean()
     job.save()
+
     return job.pk
-
-
-@app.task
-def start_job(job_model_id: int):
-    job = make_job_by_id(job_model_id)
-    job.start()
-    job.save()
 
 
 # Is this needed as a standalone task?
@@ -80,28 +88,33 @@ def update_job(job_model_id: int):
     job = make_job_by_id(job_model_id)
     job.update()
     job.save()
+    notify_of_change()
 
 
-def do_step_job(job: models.Job):
-    docker_job = jobs.DockerJob(client, job)
+def do_step_job(job: models.Job) -> bool:
+    """
+    Returns: True if anything changed
+    """
+    docker_job = jobs.DockerJob(docker_client, job)
 
     if docker_job.status == models.JobStatus.NOT_STARTED:
         if any(parent.is_failed() for parent in job.parents.all()):
             docker_job.status = models.JobStatus.DEPENDENCY_FAILED
             docker_job.save()
+
+            return True
         elif all(parent.is_successfull() for parent in job.parents.all()):
             docker_job.start()
             docker_job.save()
+
+            return True
     elif docker_job.status == models.JobStatus.RUNNING:
         docker_job.update()
         docker_job.save()
 
+        return True
 
-# Is this needed as a standalone task?
-@app.task
-def step_job(job_model_id: int):
-    job = models.Job.objects.get(pk=job_model_id)
-    do_step_job(job)
+    return False
 
 
 @app.task
@@ -109,6 +122,7 @@ def cancel_job(job_model_id: int):
     job = make_job_by_id(job_model_id)
     job.cancel()
     job.save()
+    notify_of_change()
 
 
 @app.task
@@ -130,12 +144,16 @@ def cancel_pipeline(pipeline_model_id: int):
         job.cancel()
         job.save()
 
+    notify_of_change()
+
 
 # Come up with more consistent naming
 @app.task
 def step_pipeline(pipeline_model_id: int):
     pipeline = models.Pipeline.objects.get(pk=pipeline_model_id)
-    do_step_pipeline(pipeline)
+
+    if do_step_pipeline(pipeline):
+        notify_of_change()
 
 
 @app.task
@@ -161,17 +179,20 @@ def create_pipeline_from_json(json_str: str) -> int:
     for job in jobs_names.values():
         job.save()
 
+    notify_of_change()
+
     return pipeline.pk
 
 
-def do_step_pipeline(pipeline: models.Pipeline):
-    for job in models.Job.objects.filter(pipeline=pipeline):
-        do_step_job(job)
-
-    # reading this again is inefficient
+def do_step_pipeline(pipeline: models.Pipeline) -> bool:
+    """
+    Returns: if anything changed
+    """
     jobs = list(models.Job.objects.filter(pipeline=pipeline))
     # make sure we have non-zero amount of jobs
     assert jobs
+
+    anything_changed = any(do_step_job(job) for job in jobs)
 
     if all(job.is_complete() for job in jobs):
         # all jobs are either cancelled, transitively cancelled or successfull
@@ -184,9 +205,13 @@ def do_step_pipeline(pipeline: models.Pipeline):
             pipeline.status = models.PipelineStatus.FINISHED
 
         pipeline.save()
+        anything_changed = True
     elif pipeline.status == models.PipelineStatus.NOT_STARTED:
         pipeline.status = models.PipelineStatus.RUNNING
         pipeline.save()
+        anything_changed = True
+
+    return anything_changed
 
 
 @app.task
@@ -197,8 +222,8 @@ def step_pipelines():
     pipelines_to_step = models.Pipeline.objects.filter(Q(status=models.PipelineStatus.NOT_STARTED) |
                                                        Q(status=models.PipelineStatus.RUNNING))
 
-    for pipeline in pipelines_to_step:
-        do_step_pipeline(pipeline)
+    if any(do_step_pipeline(pipeline) for pipeline in pipelines_to_step):
+        notify_of_change()
 
 
 @app.on_after_configure.connect

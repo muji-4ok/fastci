@@ -126,7 +126,7 @@ export async function fetchResponseFromPostApi(path, data) {
     return response;
 }
 
-export async function fetchDataFromApi(path) {
+export async function fetchResponseFromGetApi(path) {
     let response = await doCallApi(path);
 
     if (response.status === 401) {
@@ -146,5 +146,27 @@ export async function fetchDataFromApi(path) {
         }
     }
 
+    return response;
+}
+
+export async function fetchDataFromGetApi(path) {
+    // Throws a JSON decode error if data is empty
+    const response = await fetchResponseFromGetApi(path);
     return await response.json();
+}
+
+export function setupWebsocketScheduler(targetFunction) {
+    let socket = new WebSocket('ws://localhost:8000/ws/')
+
+    socket.onopen = () => socket.send('go?');
+    socket.onmessage = async () => {
+        await targetFunction();
+        socket.send('go?');
+    }
+    // TODO: retry when connection breaks
+
+    // Ignoring for now
+    targetFunction();
+
+    return () => socket.close();
 }

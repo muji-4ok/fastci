@@ -3,6 +3,7 @@ import * as api from "../utils/api";
 import {Link, useParams} from "react-router-dom";
 import * as status from "../utils/status";
 import RequiresLogin from "./requires_login";
+import {setupWebsocketScheduler} from "../utils/api";
 
 function makeBasicInfoElement(name, value) {
     return (
@@ -59,7 +60,7 @@ export default function JobPage() {
 
     React.useEffect(() => {
         async function refreshJob() {
-            const data = await api.fetchDataFromApi(`fastci/api/job/${id}`);
+            const data = await api.fetchDataFromGetApi(`fastci/api/job/${id}`);
 
             if (data === null) {
                 // TODO: Make a toast
@@ -70,11 +71,7 @@ export default function JobPage() {
             setJobData(data);
         }
 
-        let intervalId = setInterval(refreshJob, 1000);
-        // Ignoring for now
-        refreshJob();
-
-        return () => clearInterval(intervalId);
+        return setupWebsocketScheduler(refreshJob);
     }, [id]);
 
     let info_elements = [

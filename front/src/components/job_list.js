@@ -5,12 +5,13 @@ import {Link} from "react-router-dom";
 import ActionWithTooltip from "./action_with_tooltip";
 import {cancelJob, updateJob} from "../utils/action_api";
 import RequiresLogin from "./requires_login";
+import {setupWebsocketScheduler} from "../utils/api";
 
 export default function JobListPage() {
     let [data, setData] = React.useState([]);
 
     async function refreshList() {
-        const data = await api.fetchDataFromApi('fastci/api/job_list');
+        const data = await api.fetchDataFromGetApi('fastci/api/job_list');
 
         if (data === null) {
             // TODO: Make a toast
@@ -22,11 +23,7 @@ export default function JobListPage() {
     }
 
     React.useEffect(() => {
-        let intervalId = setInterval(refreshList, 1000);
-        // Ignoring for now
-        refreshList();
-
-        return () => clearInterval(intervalId);
+        return setupWebsocketScheduler(refreshList);
     }, []);
 
     function makeJobElement(job, index) {

@@ -1,5 +1,6 @@
 import React from "react";
 import * as api from "../utils/api";
+import {setupWebsocketScheduler} from "../utils/api";
 import {topologicalSort, transformToChildrenGraph, transformToJobsDict} from "../utils/node";
 import * as status from "../utils/status";
 import {Link} from "react-router-dom";
@@ -19,7 +20,7 @@ export default function PipelineListPage() {
     });
 
     async function refreshList() {
-        let data = await api.fetchDataFromApi('fastci/api/pipeline_list');
+        let data = await api.fetchDataFromGetApi('fastci/api/pipeline_list');
 
         if (data === null) {
             // TODO: Make a toast
@@ -33,11 +34,7 @@ export default function PipelineListPage() {
     }
 
     React.useEffect(() => {
-        let intervalId = setInterval(refreshList, 1000);
-        // Ignoring for now
-        refreshList();
-
-        return () => clearInterval(intervalId);
+        return setupWebsocketScheduler(refreshList);
     }, []);
 
     // `bind` prepends any additional arguments, so these identification args must precede `event`

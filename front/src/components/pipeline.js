@@ -5,6 +5,7 @@ import * as status from "../utils/status";
 import {useParams} from "react-router-dom";
 import JobLink from "./job_link";
 import RequiresLogin from "./requires_login";
+import {setupWebsocketScheduler} from "../utils/api";
 
 export default function PipelinePage() {
     const params = useParams();
@@ -19,7 +20,7 @@ export default function PipelinePage() {
     //       On a page refresh, edges don't update correctly right away
     React.useEffect(() => {
         async function refreshPipeline() {
-            const data = await api.fetchDataFromApi(`fastci/api/pipeline/${id}`);
+            const data = await api.fetchDataFromGetApi(`fastci/api/pipeline/${id}`);
 
             if (data === null) {
                 // TODO: Make a toast
@@ -33,11 +34,7 @@ export default function PipelinePage() {
             setStages(topologicalSort(transformToChildrenGraph(transformedData.jobs)));
         }
 
-        let intervalId = setInterval(refreshPipeline, 1000);
-        // Ignoring for now
-        refreshPipeline();
-
-        return () => clearInterval(intervalId);
+        return setupWebsocketScheduler(refreshPipeline);
     }, [id]);
 
     let nodesRef = React.useRef({});
