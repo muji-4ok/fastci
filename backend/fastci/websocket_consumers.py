@@ -13,8 +13,8 @@ class ChangeNotifier(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, code):
-        await self.channel.close()
-        await self.client.close()
+        self.channel.close()
+        self.client.close()
 
     async def receive(self, text_data=None, bytes_data=None):
         await self.channel.get()
