@@ -1,6 +1,6 @@
 import React from "react";
 import * as api from "../utils/api";
-import {setupWebsocketScheduler} from "../utils/api";
+import {useWebsocketScheduler} from "../utils/api";
 import {topologicalSort, transformToChildrenGraph, transformToJobsDict} from "../utils/node";
 import * as status from "../utils/status";
 import {Link} from "react-router-dom";
@@ -19,23 +19,25 @@ export default function PipelineListPage() {
         stageIndex: null
     });
 
-    React.useEffect(() => {
-        async function refreshList() {
-            let data = await api.fetchDataFromGetApi('fastci/api/pipeline_list');
+    // let [searchParams, setSearchParams] = useSearchParams();
+    // const listOffset = searchParams.get('offset') || 0;
+    // const listSize = searchParams.get('size') || 20;
 
-            if (data === null) {
-                // TODO: Make a toast
-                console.log('Failed to refresh pipeline list!');
-                return;
-            }
+    const refreshList = React.useCallback(async () => {
+        let data = (await api.fetchDataFromGetApi('fastci/api/pipeline_list'))['results'];
 
-            // @Speed - copying this each time just doesn't feel right
-            let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
-            setData(dataWithJobsTransformed);
+        if (data === null) {
+            // TODO: Make a toast
+            console.log('Failed to refresh pipeline list!');
+            return;
         }
 
-        return setupWebsocketScheduler(refreshList);
+        // @Speed - copying this each time just doesn't feel right
+        let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
+        setData(dataWithJobsTransformed);
     }, []);
+
+    useWebsocketScheduler(refreshList);
 
     // `bind` prepends any additional arguments, so these identification args must precede `event`
     function toggleDropdown(pipelineId, stageIndex, event) {
@@ -55,15 +57,15 @@ export default function PipelineListPage() {
 
     // TODO: Not sure how to use this yet. I can place this in the top-level container, but then
     //       I'll need to carefully handle event propagation
-    function hideDropdown(event) {
-        // TODO: is this needed?
-        event.preventDefault();
-
-        this.setState({
-            pipelineIdDropdownOpen: null,
-            stageIndexDropdownOpen: null
-        });
-    }
+    // function hideDropdown(event) {
+    //     // TODO: is this needed?
+    //     event.preventDefault();
+    //
+    //     this.setState({
+    //         pipelineIdDropdownOpen: null,
+    //         stageIndexDropdownOpen: null
+    //     });
+    // }
 
     function makePipelineElement(pipeline, index) {
         const statusDescription = status.PIPELINE_STATUS_DESCRIPTION[pipeline.status];
@@ -125,8 +127,7 @@ export default function PipelineListPage() {
     //   2. search
     //   3. actions - start, restart
     //   4. uptime
-    //   5. show status of individual stages and also steps in each stage
-    const elements = data.slice().reverse().map(makePipelineElement);
+    const elements = data.map(makePipelineElement);
 
     return (
         <RequiresLogin>

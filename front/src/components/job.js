@@ -1,9 +1,9 @@
 import React from "react";
 import * as api from "../utils/api";
+import {useWebsocketScheduler} from "../utils/api";
 import {Link, useParams} from "react-router-dom";
 import * as status from "../utils/status";
 import RequiresLogin from "./requires_login";
-import {setupWebsocketScheduler} from "../utils/api";
 
 function makeBasicInfoElement(name, value) {
     return (
@@ -58,21 +58,19 @@ export default function JobPage() {
         }
     );
 
-    React.useEffect(() => {
-        async function refreshJob() {
-            const data = await api.fetchDataFromGetApi(`fastci/api/job/${id}`);
+    const refreshJob = React.useCallback(async () => {
+        const data = await api.fetchDataFromGetApi(`fastci/api/job/${id}`);
 
-            if (data === null) {
-                // TODO: Make a toast
-                console.log('Failed to refresh job!');
-                return;
-            }
-
-            setJobData(data);
+        if (data === null) {
+            // TODO: Make a toast
+            console.log('Failed to refresh job!');
+            return;
         }
 
-        return setupWebsocketScheduler(refreshJob);
+        setJobData(data);
     }, [id]);
+
+    useWebsocketScheduler(refreshJob);
 
     let info_elements = [
         makeBasicInfoElement('Id', id),

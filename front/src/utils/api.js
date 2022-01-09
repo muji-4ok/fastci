@@ -1,3 +1,5 @@
+import React from "react";
+
 const API_BASE = 'http://localhost:8000';
 
 export async function signIn(username, password) {
@@ -155,18 +157,31 @@ export async function fetchDataFromGetApi(path) {
     return await response.json();
 }
 
-export function setupWebsocketScheduler(targetFunction) {
-    let socket = new WebSocket('ws://localhost:8000/ws/')
+export function useWebsocketScheduler(targetFunction) {
+    // NOTE: targetFunction likely should be a callback
+    let socketRef = React.useRef(null);
+    let [socketReset, setSocketReset] = React.useState(0);
 
-    socket.onopen = () => socket.send('go?');
-    socket.onmessage = async () => {
-        await targetFunction();
-        socket.send('go?');
-    }
-    // TODO: retry when connection breaks
+    React.useEffect(() => {
+        socketRef.current = new WebSocket('ws://localhost:8000/ws/');
+        console.log('WebSocket connect');
 
-    // Ignoring for now
-    targetFunction();
+        socketRef.current.onopen = () => socketRef.current.send('go?');
+        socketRef.current.onmessage = async () => {
+            await targetFunction();
+            socketRef.current.send('go?');
+        };
+        socketRef.current.onclose = (event) => {
+            if (!event.wasClean) {
+                setSocketReset(socketReset + 1);
+            }
+        };
 
-    return () => socket.close();
+        // Ignoring for now
+        targetFunction();
+
+        return () => socketRef.current.close();
+    }, [socketRef, socketReset, targetFunction]);
+
+    // Could return connection reset function if needed
 }

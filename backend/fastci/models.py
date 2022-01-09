@@ -37,6 +37,9 @@ class Pipeline(models.Model):
     #   2) stages
     #   3) uptime
 
+    class Meta:
+        ordering = ['-pk']
+
 
 class Job(models.Model):
     name = models.CharField(max_length=200)
@@ -69,6 +72,9 @@ class Job(models.Model):
     #   2) pipeline info
     #   3) support subprocesses (not in docker)
     #   4) sticky jobs
+
+    class Meta:
+        ordering = ['-pk']
 
     def is_failed(self) -> bool:
         return self.is_complete() and not self.is_successfull()

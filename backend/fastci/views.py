@@ -8,16 +8,22 @@ from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 
 from . import tasks
 from .models import Job, ListingJobSerializer, CompleteJobSerializer, Pipeline, CompletePipelineSerializer, \
     UserSerializer
 
 
+class BasicPageNumberPagination(PageNumberPagination):
+    page_size = 20
+
+
 class ListJobViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = Job.objects.all()
     serializer_class = ListingJobSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = BasicPageNumberPagination
 
 
 class RetrieveJobViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):
@@ -30,6 +36,7 @@ class ListPipelineViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = Pipeline.objects.all()
     serializer_class = CompletePipelineSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = BasicPageNumberPagination
 
 
 class RetrievePipelineViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):

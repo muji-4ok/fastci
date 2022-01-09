@@ -1,11 +1,11 @@
 import React from "react";
 import * as api from "../utils/api";
+import {useWebsocketScheduler} from "../utils/api";
 import {topologicalSort, transformToChildrenGraph, transformToJobsDict} from "../utils/node";
 import * as status from "../utils/status";
 import {useParams} from "react-router-dom";
 import JobLink from "./job_link";
 import RequiresLogin from "./requires_login";
-import {setupWebsocketScheduler} from "../utils/api";
 
 export default function PipelinePage() {
     const params = useParams();
@@ -18,24 +18,23 @@ export default function PipelinePage() {
 
     // TODO: This piece of shit still doesn't work properly...
     //       On a page refresh, edges don't update correctly right away
-    React.useEffect(() => {
-        async function refreshPipeline() {
-            const data = await api.fetchDataFromGetApi(`fastci/api/pipeline/${id}`);
 
-            if (data === null) {
-                // TODO: Make a toast
-                console.log('Failed to refresh pipeline!');
-                return;
-            }
+    const refreshPipeline = React.useCallback(async () => {
+        const data = await api.fetchDataFromGetApi(`fastci/api/pipeline/${id}`);
 
-            const transformedData = transformToJobsDict(data);
-            setName(transformedData.name);
-            setStatusId(transformedData.status);
-            setStages(topologicalSort(transformToChildrenGraph(transformedData.jobs)));
+        if (data === null) {
+            // TODO: Make a toast
+            console.log('Failed to refresh pipeline!');
+            return;
         }
 
-        return setupWebsocketScheduler(refreshPipeline);
+        const transformedData = transformToJobsDict(data);
+        setName(transformedData.name);
+        setStatusId(transformedData.status);
+        setStages(topologicalSort(transformToChildrenGraph(transformedData.jobs)));
     }, [id]);
+
+    useWebsocketScheduler(refreshPipeline);
 
     let nodesRef = React.useRef({});
 

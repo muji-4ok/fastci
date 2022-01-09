@@ -1,6 +1,6 @@
 import React from "react";
 import * as api from "../utils/api";
-import {setupWebsocketScheduler} from "../utils/api";
+import {useWebsocketScheduler} from "../utils/api";
 import * as status from "../utils/status";
 import {Link} from "react-router-dom";
 import ActionWithTooltip from "./action_with_tooltip";
@@ -10,21 +10,19 @@ import RequiresLogin from "./requires_login";
 export default function JobListPage() {
     let [data, setData] = React.useState([]);
 
-    React.useEffect(() => {
-        async function refreshList() {
-            const data = await api.fetchDataFromGetApi('fastci/api/job_list');
+    const refreshList = React.useCallback(async () => {
+        const data = (await api.fetchDataFromGetApi('fastci/api/job_list'))['results'];
 
-            if (data === null) {
-                // TODO: Make a toast
-                console.log('Failed to refresh job list!');
-                return;
-            }
-
-            setData(data);
+        if (data === null) {
+            // TODO: Make a toast
+            console.log('Failed to refresh job list!');
+            return;
         }
 
-        return setupWebsocketScheduler(refreshList);
+        setData(data);
     }, []);
+
+    useWebsocketScheduler(refreshList);
 
     function makeJobElement(job, index) {
         const statusDescription = status.JOB_STATUS_DESCRIPTION[job.status];
@@ -66,7 +64,7 @@ export default function JobListPage() {
     // TODO: paging
     // TODO: search
     // TODO: start, restart
-    const elements = data.slice().reverse().map(makeJobElement);
+    const elements = data.map(makeJobElement);
 
     // maybe remove container id?
     return (
