@@ -104,6 +104,25 @@ html, body {
     color: white;
 }
 
+.list_paginator {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.list_paginator span {
+    font-size: larger;
+    margin: 0 5px;
+}
+
+.list_paginator button {
+    border: none;
+    text-decoration: none;
+    font-size: medium;
+    width: 80px;
+    padding: 5px;
+    margin: 5px 10px;
+}
+
 .not_started {
     color: #4e6f6d;
 }

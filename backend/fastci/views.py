@@ -4,11 +4,11 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from rest_framework import viewsets, mixins
 from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
 
 from . import tasks
 from .models import Job, ListingJobSerializer, CompleteJobSerializer, Pipeline, CompletePipelineSerializer, \
@@ -16,6 +16,7 @@ from .models import Job, ListingJobSerializer, CompleteJobSerializer, Pipeline, 
 
 
 class BasicPageNumberPagination(PageNumberPagination):
+    # @CopyPaste - keep in sync with frontend
     page_size = 20
 
 

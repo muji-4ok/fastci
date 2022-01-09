@@ -9,6 +9,7 @@ import {cancelPipeline, updatePipeline} from "../utils/action_api";
 import RequiresLogin from "./requires_login";
 import PipelineCreatePage from "./pipeline_create";
 import JobLink from "./job_link";
+import {PAGE_SIZE, ListPaginator} from "./list_paginator";
 
 export default function PipelineListPage() {
     // TODO: @Speed - redrawing **everything** on each button click is very slow
@@ -18,24 +19,24 @@ export default function PipelineListPage() {
         pipelineId: null,
         stageIndex: null
     });
-
-    // let [searchParams, setSearchParams] = useSearchParams();
-    // const listOffset = searchParams.get('offset') || 0;
-    // const listSize = searchParams.get('size') || 20;
+    let [page, setPage] = React.useState(1);
+    let [pageCount, setPageCount] = React.useState(1);
 
     const refreshList = React.useCallback(async () => {
-        let data = (await api.fetchDataFromGetApi('fastci/api/pipeline_list'))['results'];
+        const response = await api.fetchDataFromGetApi(`fastci/api/pipeline_list?page=${page}`);
 
-        if (data === null) {
+        if (response === null) {
             // TODO: Make a toast
             console.log('Failed to refresh pipeline list!');
             return;
         }
 
+        const data = response['results'];
         // @Speed - copying this each time just doesn't feel right
         let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
         setData(dataWithJobsTransformed);
-    }, []);
+        setPageCount(Math.ceil(response['count'] / PAGE_SIZE));
+    }, [page]);
 
     useWebsocketScheduler(refreshList);
 
@@ -123,10 +124,9 @@ export default function PipelineListPage() {
     }
 
     // TODO:
-    //   1. paging
-    //   2. search
-    //   3. actions - start, restart
-    //   4. uptime
+    //   1. search
+    //   2. actions - start, restart
+    //   3. uptime
     const elements = data.map(makePipelineElement);
 
     return (
@@ -146,6 +146,7 @@ export default function PipelineListPage() {
                 {elements}
                 </tbody>
             </table>
+            <ListPaginator page={page} setPage={setPage} pageCount={pageCount}/>
         </RequiresLogin>
     );
 }

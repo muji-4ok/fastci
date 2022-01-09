@@ -6,21 +6,26 @@ import {Link} from "react-router-dom";
 import ActionWithTooltip from "./action_with_tooltip";
 import {cancelJob, updateJob} from "../utils/action_api";
 import RequiresLogin from "./requires_login";
+import {ListPaginator, PAGE_SIZE} from "./list_paginator";
 
 export default function JobListPage() {
     let [data, setData] = React.useState([]);
+    let [page, setPage] = React.useState(1);
+    let [pageCount, setPageCount] = React.useState(1);
 
     const refreshList = React.useCallback(async () => {
-        const data = (await api.fetchDataFromGetApi('fastci/api/job_list'))['results'];
+        const response = await api.fetchDataFromGetApi(`fastci/api/job_list?page=${page}`);
 
-        if (data === null) {
+        if (response === null) {
             // TODO: Make a toast
             console.log('Failed to refresh job list!');
             return;
         }
 
+        const data = response['results'];
         setData(data);
-    }, []);
+        setPageCount(Math.ceil(response['count'] / PAGE_SIZE));
+    }, [page]);
 
     useWebsocketScheduler(refreshList);
 
@@ -61,7 +66,6 @@ export default function JobListPage() {
         );
     }
 
-    // TODO: paging
     // TODO: search
     // TODO: start, restart
     const elements = data.map(makeJobElement);
@@ -86,6 +90,7 @@ export default function JobListPage() {
                 {elements}
                 </tbody>
             </table>
+            <ListPaginator page={page} setPage={setPage} pageCount={pageCount}/>
         </RequiresLogin>
     );
 }
