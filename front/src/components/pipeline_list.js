@@ -19,21 +19,21 @@ export default function PipelineListPage() {
         stageIndex: null
     });
 
-    async function refreshList() {
-        let data = await api.fetchDataFromGetApi('fastci/api/pipeline_list');
+    React.useEffect(() => {
+        async function refreshList() {
+            let data = await api.fetchDataFromGetApi('fastci/api/pipeline_list');
 
-        if (data === null) {
-            // TODO: Make a toast
-            console.log('Failed to refresh pipeline list!');
-            return;
+            if (data === null) {
+                // TODO: Make a toast
+                console.log('Failed to refresh pipeline list!');
+                return;
+            }
+
+            // @Speed - copying this each time just doesn't feel right
+            let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
+            setData(dataWithJobsTransformed);
         }
 
-        // @Speed - copying this each time just doesn't feel right
-        let dataWithJobsTransformed = data.map((pipeline, i) => transformToJobsDict(pipeline));
-        setData(dataWithJobsTransformed);
-    }
-
-    React.useEffect(() => {
         return setupWebsocketScheduler(refreshList);
     }, []);
 
@@ -108,17 +108,12 @@ export default function PipelineListPage() {
                 </td>
                 <td>
                     <ActionWithTooltip
-                        onClick={async () => {
-                            await updatePipeline(pipeline.id);
-                            await refreshList();
-                        }}
+                        onClick={updatePipeline.bind(null, pipeline.id)}
                         iconClass='fas fa-sync running'
                         actionName='Update'/>
                     <ActionWithTooltip
-                        onClick={async () => {
-                            await cancelPipeline(pipeline.id);
-                            await refreshList();
-                        }} iconClass='fas fa-ban cancelled'
+                        onClick={cancelPipeline.bind(null, pipeline.id)}
+                        iconClass='fas fa-ban cancelled'
                         actionName='Cancel'/>
                 </td>
             </tr>
@@ -135,7 +130,7 @@ export default function PipelineListPage() {
 
     return (
         <RequiresLogin>
-            <PipelineCreatePage refreshList={refreshList}/>
+            <PipelineCreatePage/>
             <table className='simple_table'>
                 <thead>
                 <tr>

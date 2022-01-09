@@ -1,28 +1,28 @@
 import React from "react";
 import * as api from "../utils/api";
+import {setupWebsocketScheduler} from "../utils/api";
 import * as status from "../utils/status";
 import {Link} from "react-router-dom";
 import ActionWithTooltip from "./action_with_tooltip";
 import {cancelJob, updateJob} from "../utils/action_api";
 import RequiresLogin from "./requires_login";
-import {setupWebsocketScheduler} from "../utils/api";
 
 export default function JobListPage() {
     let [data, setData] = React.useState([]);
 
-    async function refreshList() {
-        const data = await api.fetchDataFromGetApi('fastci/api/job_list');
+    React.useEffect(() => {
+        async function refreshList() {
+            const data = await api.fetchDataFromGetApi('fastci/api/job_list');
 
-        if (data === null) {
-            // TODO: Make a toast
-            console.log('Failed to refresh job list!');
-            return;
+            if (data === null) {
+                // TODO: Make a toast
+                console.log('Failed to refresh job list!');
+                return;
+            }
+
+            setData(data);
         }
 
-        setData(data);
-    }
-
-    React.useEffect(() => {
         return setupWebsocketScheduler(refreshList);
     }, []);
 
@@ -51,17 +51,12 @@ export default function JobListPage() {
                 <td>{job.uptime_secs.toFixed(2)}</td>
                 <td>
                     <ActionWithTooltip
-                        onClick={async (event) => {
-                            await updateJob(job.id);
-                            await refreshList();
-                        }}
+                        onClick={updateJob.bind(null, job.id)}
                         iconClass='fas fa-sync running'
                         actionName='Update'/>
                     <ActionWithTooltip
-                        onClick={async (event) => {
-                            await cancelJob(job.id);
-                            await refreshList();
-                        }} iconClass='fas fa-ban cancelled'
+                        onClick={cancelJob.bind(null, job.id)}
+                        iconClass='fas fa-ban cancelled'
                         actionName='Cancel'/>
                 </td>
             </tr>

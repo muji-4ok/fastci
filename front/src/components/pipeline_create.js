@@ -1,8 +1,7 @@
 import React from "react";
 import * as api from "../utils/api";
 
-export default function PipelineCreatePage(props) {
-    let {refreshList} = props;
+export default function PipelineCreatePage() {
     let [file, setFile] = React.useState(null);
     let [error, setError] = React.useState('\u200b');
 
@@ -31,8 +30,6 @@ export default function PipelineCreatePage(props) {
         let response = await api.fetchResponseFromPostApi('fastci/api/create_pipeline/', data);
 
         if (response.status === 200) {
-            // TODO: make a toast?
-            await refreshList;
             setError('\u200b');
         } else if (response.status === 400) {
             let responseData = await response.json();
