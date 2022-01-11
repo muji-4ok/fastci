@@ -1,0 +1,14 @@
+{
+  "name": "job_params_fail_pipeline_1",
+  "jobs": [
+    {
+      "name": "wait",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/the_longing.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ],
+      "timeout_secs": "fjslk"
+    }
+  ]
+}

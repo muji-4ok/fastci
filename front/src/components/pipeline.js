@@ -15,6 +15,7 @@ export default function PipelinePage() {
 
     let [name, setName] = React.useState('');
     let [statusId, setStatusId] = React.useState(0);
+    let [tmpDir, setTmpDir] = React.useState('');
     let [stages, setStages] = React.useState([]);
     let [nodeDimensions, setNodeDimensions] = React.useState({});
 
@@ -30,6 +31,7 @@ export default function PipelinePage() {
         const transformedData = transformToJobsDict(data);
         setName(transformedData.name);
         setStatusId(transformedData.status);
+        setTmpDir(transformedData.tmp_dir);
         setStages(topologicalSort(transformToChildrenGraph(transformedData.jobs)));
     }, [id]);
 
@@ -125,6 +127,10 @@ export default function PipelinePage() {
                     <label className={statusClass}>
                         {status.PIPELINE_STATUS_DESCRIPTION[statusId]}
                     </label>
+                </div>
+                <div>
+                    <label>Tmp dir</label>
+                    <label>{tmpDir || 'None'}</label>
                 </div>
                 <div>
                     <label>Actions</label>

@@ -1,0 +1,9 @@
+{
+  "name": "job_params_fail_pipeline_2",
+  "jobs": [
+    {
+      "name": "wait",
+      "image": "ubuntu-test"
+    }
+  ]
+}

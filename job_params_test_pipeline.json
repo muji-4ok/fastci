@@ -1,0 +1,28 @@
+{
+  "name": "job_params_test_pipeline",
+  "jobs": [
+    {
+      "name": "wait_10.5",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/the_longing.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ],
+      "timeout_secs": 10.5
+    },
+    {
+      "name": "wait_6",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/the_longing.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ],
+      "timeout_secs": 6
+    },
+    {
+      "name": "echo",
+      "image": "ubuntu-test",
+      "command": "echo \"Hello, world!\""
+    }
+  ]
+}

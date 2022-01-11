@@ -1,5 +1,7 @@
 import json
 import os
+import tempfile
+from pathlib import Path
 from typing import Optional
 
 import celery
@@ -63,16 +65,38 @@ def make_job_by_id(job_model_id: int) -> jobs.DockerJob:
     return jobs.DockerJob(docker_client, job_model)
 
 
-# Is this needed as a standalone task?
-@app.task
-def create_job(name: str, pipeline_id: int, image: str, command: str, volumes: list[str],
-               timeout_secs: Optional[float] = None) -> int:
+def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optional[Path]) -> int:
     """
     Creates the container and an associated Job model
 
     Returns:
         id of the created Job model
     """
+    # TODO: make a dedicated error type instead of doing asserts
+    assert 'image' in job_data and 'command' in job_data and 'name' in job_data, \
+        'image, command and name fields are required!'
+
+    if 'timeout_secs' in job_data:
+        try:
+            float(job_data['timeout_secs'])
+        except ValueError:
+            assert False, 'timeout_secs must be convertable to float!'
+
+    if 'volumes' in job_data:
+        assert isinstance(job_data['volumes'], list) and all(isinstance(volume, str) for volume
+                                                             in job_data['volumes']), 'volumes must be a list of str!'
+
+    name = job_data['name']
+    image = job_data['image']
+    command = job_data['command']
+    volumes = job_data.get('volumes', [])
+    timeout_secs = job_data.get('timeout_secs')
+
+    if common_pipeline_dir is not None:
+        # this uses str, not repr
+        # FIXME: check what happens when there are spaces in the path
+        volumes.append(f'{common_pipeline_dir.absolute()}:/pipeline')
+
     container = docker_client.containers.create(image, command, detach=True, volumes=volumes)
     job = models.Job(name=name, pipeline=models.Pipeline.objects.get(pk=pipeline_id), container_id=container.id,
                      timeout_secs=timeout_secs)
@@ -161,12 +185,19 @@ def step_pipeline(pipeline_model_id: int):
 def create_pipeline_from_json(json_str: str) -> int:
     # TODO: we pass the json already, so maybe we can somehow tell celery not to serialize any more
     data = json.loads(json_str)
-    pipeline = models.Pipeline(name=data['name'])
+
+    # TODO: decide what the default should be
+    # TODO: clean up
+    common_pipeline_dir = Path(tempfile.mkdtemp()) if data.get('setup_pipeline_dir', False) else None
+
+    pipeline = models.Pipeline(name=data['name'], tmp_dir=common_pipeline_dir)
     pipeline.save()
+
     jobs_names = dict()
 
     for job_data in data['jobs']:
-        job = models.Job.objects.get(pk=create_job(**job_data, pipeline_id=pipeline.pk))
+        job = models.Job.objects.get(pk=do_create_job(job_data, pipeline_id=pipeline.pk,
+                                                      common_pipeline_dir=common_pipeline_dir))
         # TODO: instead of asserting, return an error that can be parsed and understood
         assert job.name not in jobs_names, 'Names of jobs in a single pipeline must be unique!'
         jobs_names[job.name] = job

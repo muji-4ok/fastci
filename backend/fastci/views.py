@@ -56,7 +56,7 @@ class CreateUserViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         return user
 
 
-# Order matters!
+# NOTE: Order matters!
 @api_view()
 @permission_classes([IsAuthenticated])
 @transaction.atomic

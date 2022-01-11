@@ -32,9 +32,11 @@ class PipelineStatus(models.IntegerChoices):
 class Pipeline(models.Model):
     name = models.CharField(max_length=200)
     status = models.IntegerField(choices=PipelineStatus.choices, default=PipelineStatus.NOT_STARTED)
+    # that's the max length of a filename in linux
+    tmp_dir = models.CharField(max_length=4096, blank=True, null=True)
     # TODO:
     #   1) initiator
-    #   2) stages
+    #   2) stages?
     #   3) uptime
 
     class Meta:
@@ -127,7 +129,7 @@ class CompletePipelineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pipeline
-        fields = ['id', 'name', 'status', 'jobs']
+        fields = ['id', 'name', 'status', 'jobs', 'tmp_dir']
 
 
 class UserSerializer(serializers.ModelSerializer):

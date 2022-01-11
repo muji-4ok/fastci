@@ -1,0 +1,27 @@
+{
+  "name": "common_dir_pipeline",
+  "jobs": [
+    {
+      "name": "write_something",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/pipeline_dir_writer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    },
+    {
+      "name": "read_something",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/pipeline_dir_reader.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+      ]
+    }
+  ],
+  "parents": {
+    "read_something": [
+      "write_something"
+    ]
+  },
+  "setup_pipeline_dir": true
+}
