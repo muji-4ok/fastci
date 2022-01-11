@@ -18,9 +18,6 @@ export default function PipelinePage() {
     let [stages, setStages] = React.useState([]);
     let [nodeDimensions, setNodeDimensions] = React.useState({});
 
-    // TODO: This piece of shit still doesn't work properly...
-    //       On a page refresh, edges don't update correctly right away
-
     const refreshPipeline = React.useCallback(async () => {
         const data = await api.fetchDataFromGetApi(`fastci/api/pipeline/${id}`);
 
@@ -45,7 +42,6 @@ export default function PipelinePage() {
             return;
         }
         let newDimensions = {};
-
 
         for (const [jobId, elem] of Object.entries(nodesRef.current)) {
             newDimensions[jobId] = {

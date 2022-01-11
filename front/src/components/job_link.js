@@ -11,7 +11,7 @@ export default function JobLink(props) {
     return (
         <div className='job_link'>
             <Link to={`/job/${job.id}`} className={statusClass}>
-                <i className={`fas ${status.getIconClassFromStatusClass(statusClass)}`}/>
+                <i className={`fas ${status.getIconClassFromStatusClass(statusClass)} fa_icon_fix_size`}/>
                 <span>{job.name}</span>
             </Link>
             <div>

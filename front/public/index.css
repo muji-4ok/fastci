@@ -326,6 +326,12 @@ html, body {
     text-align: right;
 }
 
+/* Set this to all font-awesome icons to prevent content reflow due to lazy loading */
+.fa_icon_fix_size {
+    width: 16px;
+    height: 16px;
+}
+
 .action_with_tooltip {
     position: relative;
     cursor: pointer;
