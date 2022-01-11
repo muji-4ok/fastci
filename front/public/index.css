@@ -154,7 +154,7 @@ html, body {
     color: white;
     background-color: black;
     font-family: Consolas, monospace;
-    flex: 10 0 auto;
+    flex: 4 1 0;
     white-space: pre-line;
     padding: 10px;
     border-style: solid;
@@ -167,7 +167,7 @@ html, body {
 }
 
 .job_info_pane {
-    flex: 1 0 auto;
+    flex: 1 1 0;
     border-style: solid;
     border-width: 5px;
     padding: 2px;
