@@ -13,14 +13,21 @@ class ChangeNotifier(AsyncWebsocketConsumer):
         await self.accept()
 
     # This won't be called if receive hasn't finished...
-    # Fucking piece of shit api...
-    # Nice fucking job making an async api, you pieces of shit stupid shit-brained retarded devs.
-    # I'm fucking tired of dealing with this bullshit all the time. I guess redis will have to kill off the connection
-    # or whatever. Fuck.
     async def disconnect(self, code):
+        self.clean_up_redis()
+
+    def clean_up_redis(self):
         self.pubsub_channel.close()
         self.redis_client.close()
 
     async def receive(self, text_data=None, bytes_data=None):
-        await self.pubsub_channel.get()
+        try:
+            await self.pubsub_channel.get()
+        except asyncio.CancelledError:
+            # If we get disconnected while waiting on the channel, then the `disconnect` method won't be called and
+            # the warning will be logged. So, whatever, clean up redis at least
+            # (but honestly, not sure, but maybe redis is cleaned up in any case)
+            self.clean_up_redis()
+            raise
+
         await self.send('go')
