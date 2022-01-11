@@ -2,6 +2,7 @@
 export const PAGE_SIZE = 20;
 
 export function ListPaginator(props) {
+    // FIXME: If there are no pages, this breaks. But I don't really care
     let {page, setPage, pageCount} = props;
 
     return (

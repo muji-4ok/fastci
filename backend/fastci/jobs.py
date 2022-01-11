@@ -103,6 +103,10 @@ class DockerJob:
             # not finished => running => we can compare our times, which are also in the same timezone
             return time.time() - self.host_start_time_secs
 
+    def clean_up(self):
+        self.update()
+        self.container.remove()
+
     def cancel(self):
         if self.status == models.JobStatus.NOT_STARTED:
             self.status = models.JobStatus.CANCELLED

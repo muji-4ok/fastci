@@ -34,6 +34,8 @@ class Pipeline(models.Model):
     status = models.IntegerField(choices=PipelineStatus.choices, default=PipelineStatus.NOT_STARTED)
     # that's the max length of a filename in linux
     tmp_dir = models.CharField(max_length=4096, blank=True, null=True)
+    cleaned_up = models.BooleanField(default=False)
+
     # TODO:
     #   1) initiator
     #   2) stages?
@@ -49,7 +51,8 @@ class Job(models.Model):
 
     # id of an already created container
     # a hexadecimal of exact size 64
-    container_id = models.CharField(max_length=64, validators=[RegexValidator(regex=r'[0-9a-fA-F]{64}')])
+    # id is null <=> job is cleaned up
+    container_id = models.CharField(max_length=64, validators=[RegexValidator(regex=r'[0-9a-fA-F]{64}')], null=True)
 
     timeout_secs = models.FloatField(blank=True, null=True)
     host_start_time_secs = models.FloatField(default=0.0)

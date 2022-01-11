@@ -103,7 +103,7 @@ export default function JobPage() {
         makeLinkInfoElement('Pipeline name', jobData.pipeline.name,
             `/pipeline/${jobData.pipeline.id}`),
         // TODO: do we need to slice the id?
-        makeBasicInfoElement('Container id', jobData.container_id.slice(0, 12)),
+        makeBasicInfoElement('Container id', jobData.container_id ? jobData.container_id.slice(0, 12) : 'Cleaned up'),
         makeBasicInfoElement('Timeout (in secs)',
             jobData.timeout_secs?.toFixed(2) ?? 'None'),
         makeBasicInfoElement('Uptime (in secs)', jobData.uptime_secs.toFixed(2)),

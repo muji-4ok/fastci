@@ -31,6 +31,8 @@ docker_client = None
 redis_client: Optional[redis.Redis]
 redis_client = None
 
+COUNT_FIRST_PIPELINES_TO_NOT_CLEAN_UP = 10
+
 
 def notify_of_change():
     """
@@ -58,11 +60,6 @@ def setup_globals_worker(sender, **kwargs):
 @beat_init.connect
 def setup_globals_beat(sender, **kwargs):
     init_clients()
-
-
-def make_job_by_id(job_model_id: int) -> jobs.DockerJob:
-    job_model = models.Job.objects.get(pk=job_model_id)
-    return jobs.DockerJob(docker_client, job_model)
 
 
 def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optional[Path]) -> int:
@@ -106,19 +103,50 @@ def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optiona
     return job.pk
 
 
-# Is this needed as a standalone task?
+def do_clean_up_job(job_model: models.Job):
+    job = jobs.DockerJob(docker_client, job_model)
+    job.clean_up()
+    job_model.container_id = None
+    job_model.save()
+
+
+@transaction.atomic
+def do_clean_up_pipeline(pipeline: models.Pipeline):
+    assert pipeline.status != models.PipelineStatus.RUNNING and pipeline.status != models.PipelineStatus.NOT_STARTED, \
+        'Attempting to clean up an unfinished pipeline!'
+
+    pipeline.tmp_dir = None
+    pipeline.cleaned_up = True
+    pipeline.save()
+
+    for job in models.Job.objects.filter(pipeline=pipeline):
+        do_clean_up_job(job)
+
+
+# NOTE: This is not the same as step_job, even though the name is very similar...
+#       All this does is query a set of statistics from the docker. But **does not** in any way change the status.
+#       We assume that step_pipeline and step_job, which are called periodically, correctly handle the dependencies
+#       and statuses of jobs and pipelines.
+#       This function, on the other hand, can be used to update the output, uptime and so on, if docker is lagging
+#       with updates
 @app.task
 def update_job(job_model_id: int):
-    job = make_job_by_id(job_model_id)
-    job.update()
-    job.save()
-    notify_of_change()
+    job_model = models.Job.objects.get(pk=job_model_id)
+
+    if job_model.container_id is None:
+        logger.warning('Trying to update an already cleaned up container!')
+    else:
+        job = jobs.DockerJob(docker_client, job_model)
+        job.update()
+        job.save()
+        notify_of_change()
 
 
-def do_step_job(job: models.Job) -> bool:
+def step_job(job: models.Job) -> bool:
     """
     Returns: True if anything changed
     """
+    assert job.container_id is not None
     docker_job = jobs.DockerJob(docker_client, job)
 
     if docker_job.status == models.JobStatus.NOT_STARTED:
@@ -143,28 +171,37 @@ def do_step_job(job: models.Job) -> bool:
 
 @app.task
 def cancel_job(job_model_id: int):
-    job = make_job_by_id(job_model_id)
-    job.cancel()
-    job.save()
-    notify_of_change()
+    job_model = models.Job.objects.get(pk=job_model_id)
+
+    if job_model.container_id is None:
+        logger.warning('Trying to cancel an already cleaned up container!')
+    else:
+        job = jobs.DockerJob(docker_client, job_model)
+        job.cancel()
+        job.save()
+        notify_of_change()
 
 
 @app.task
 def cancel_pipeline(pipeline_model_id: int):
     pipeline = models.Pipeline.objects.get(pk=pipeline_model_id)
 
+    if pipeline.cleaned_up:
+        logger.warning('Trying to cancel an already cleaned up pipeline!')
+        return
+
     if pipeline.status == models.PipelineStatus.FINISHED or pipeline.status == models.PipelineStatus.FAILED:
-        logger.warning('Trying to cancel an already finished pipeline')
+        logger.warning('Trying to cancel an already finished pipeline!')
         return
     elif pipeline.status == models.PipelineStatus.CANCELLED:
-        logger.warning('Trying to cancel an already cancelled pipeline')
+        logger.warning('Trying to cancel an already cancelled pipeline!')
         return
 
     pipeline.status = models.PipelineStatus.CANCELLED
     pipeline.save()
 
     for job_model in models.Job.objects.filter(pipeline=pipeline):
-        job = make_job_by_id(job_model.pk)
+        job = jobs.DockerJob(docker_client, job_model)
         job.cancel()
         job.save()
 
@@ -176,6 +213,10 @@ def cancel_pipeline(pipeline_model_id: int):
 def step_pipeline(pipeline_model_id: int):
     pipeline = models.Pipeline.objects.get(pk=pipeline_model_id)
 
+    if pipeline.cleaned_up:
+        logger.warning('Trying to step an already cleaned up pipeline!')
+        return
+
     if do_step_pipeline(pipeline):
         notify_of_change()
 
@@ -186,8 +227,6 @@ def create_pipeline_from_json(json_str: str) -> int:
     # TODO: we pass the json already, so maybe we can somehow tell celery not to serialize any more
     data = json.loads(json_str)
 
-    # TODO: decide what the default should be
-    # TODO: clean up
     common_pipeline_dir = Path(tempfile.mkdtemp()) if data.get('setup_pipeline_dir', False) else None
 
     pipeline = models.Pipeline(name=data['name'], tmp_dir=common_pipeline_dir)
@@ -219,11 +258,14 @@ def do_step_pipeline(pipeline: models.Pipeline) -> bool:
     """
     Returns: if anything changed
     """
+    assert not pipeline.cleaned_up, 'Trying to step a cleaned up pipeline!'
+
     jobs = list(models.Job.objects.filter(pipeline=pipeline))
     # make sure we have non-zero amount of jobs
     assert jobs
 
-    anything_changed = any(do_step_job(job) for job in jobs)
+    # WARN: list comprehension is needed because all of steps must be ran
+    anything_changed = any([step_job(job) for job in jobs])
 
     if all(job.is_complete() for job in jobs):
         # all jobs are either cancelled, transitively cancelled or successfull
@@ -250,11 +292,19 @@ def step_pipelines():
     # TODO: Real bad problems with concurrency. Right now we just run one worker with only one thread...
     #       Maybe we need to switch to PostgreSQL, transactions with sqlite always cause locks, and I don't know why...
     #       How bad could the engine be to cause deadlocks ALL. THE. TIME..? So I assume that I'm doing something wrong
-    pipelines_to_step = models.Pipeline.objects.filter(Q(status=models.PipelineStatus.NOT_STARTED) |
-                                                       Q(status=models.PipelineStatus.RUNNING))
+    pipelines_to_step = models.Pipeline.objects.filter((Q(status=models.PipelineStatus.NOT_STARTED) |
+                                                        Q(status=models.PipelineStatus.RUNNING)) & Q(cleaned_up=False))
 
-    if any(do_step_pipeline(pipeline) for pipeline in pipelines_to_step):
+    # WARN: list comprehension is needed because all of steps must be ran
+    if any([do_step_pipeline(pipeline) for pipeline in pipelines_to_step]):
         notify_of_change()
+
+    pipelines_to_clean_up = models.Pipeline.objects.filter(~Q(status=models.PipelineStatus.NOT_STARTED) &
+                                                           ~Q(status=models.PipelineStatus.RUNNING) &
+                                                           Q(cleaned_up=False))[COUNT_FIRST_PIPELINES_TO_NOT_CLEAN_UP:]
+
+    for pipeline in pipelines_to_clean_up:
+        do_clean_up_pipeline(pipeline)
 
 
 @app.on_after_configure.connect

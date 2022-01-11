@@ -50,7 +50,7 @@ export default function JobListPage() {
                 </td>
                 <td className={statusClass}>{statusDescription}</td>
                 {/* TODO: do we need to slice the id? */}
-                <td>{job.container_id.slice(0, 12)}</td>
+                <td>{job.container_id ? job.container_id.slice(0, 12) : 'Cleaned up'}</td>
                 <td>{job.uptime_secs.toFixed(2)}</td>
                 <td>
                     <ActionWithTooltip
