@@ -83,8 +83,8 @@ export function isLoggedIn() {
         return false;
     }
 
-    // TODO: Check that token is actually valid. Or don't check? This is called on every page,
-    //       render. And I don't think we wan't to make an API call **every** time.
+    // The fact that the token is valid is checked in RequiresLogin via an effect, keeping this
+    // function sync
 
     return true;
 }
