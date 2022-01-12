@@ -1,2 +1,2 @@
-with open('/pipeline/out.txt') as f:
+with open('/fastci/pipeline/out.txt') as f:
     print(f.read())

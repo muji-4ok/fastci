@@ -32,6 +32,7 @@ redis_client: Optional[redis.Redis]
 redis_client = None
 
 COUNT_FIRST_PIPELINES_TO_NOT_CLEAN_UP = 10
+INTERNAL_DIR = (Path(__file__).parent.parent.parent / 'internal').absolute()
 
 
 def notify_of_change():
@@ -93,13 +94,16 @@ def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optiona
     if common_pipeline_dir is not None:
         # this uses str, not repr
         # FIXME: check what happens when there are spaces in the path (if I care (I don't))
-        volumes.append(f'{common_pipeline_dir.absolute()}:/pipeline')
+        volumes.append(f'{common_pipeline_dir.absolute()}:/fastci/pipeline')
 
     if work_dir_to_bind is not None:
         # this uses str, not repr
         # FIXME: check what happens when there are spaces in the path (if I care (I don't))
         # WARN: must be absolute, the caller must check this
-        volumes.append(f'{work_dir_to_bind}:/workdir')
+        # @CopyPaste - keep in sync with bootstrap.py script
+        volumes.append(f'{work_dir_to_bind}:/fastci/workdir')
+        volumes.append(f'{INTERNAL_DIR}:/fastci/internal:ro')
+        command = f'/fastci/internal/bootstrap.py {command}'
 
     container = docker_client.containers.create(image, command, detach=True, volumes=volumes)
     job = models.Job(name=name, pipeline=models.Pipeline.objects.get(pk=pipeline_id), container_id=container.id,

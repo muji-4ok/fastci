@@ -4,12 +4,12 @@
     {
       "name": "write_something",
       "image": "ubuntu-test",
-      "command": "python3 /workdir/pipeline_dir_writer.py"
+      "command": "python3 pipeline_dir_writer.py"
     },
     {
       "name": "read_something",
       "image": "ubuntu-test",
-      "command": "python3 /workdir/pipeline_dir_reader.py"
+      "command": "python3 pipeline_dir_reader.py"
     }
   ],
   "parents": {
