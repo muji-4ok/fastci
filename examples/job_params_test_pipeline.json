@@ -4,18 +4,18 @@
     {
       "name": "wait_10.5",
       "image": "ubuntu-test",
-      "command": "python3 /home/egork/Projects/py/fastci/the_longing.py",
+      "command": "python3 /home/egork/Projects/py/fastci/examples/the_longing.py",
       "volumes": [
-        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+        "/home/egork/Projects/py/fastci/examples:/home/egork/Projects/py/fastci/examples"
       ],
       "timeout_secs": 10.5
     },
     {
       "name": "wait_6",
       "image": "ubuntu-test",
-      "command": "python3 /home/egork/Projects/py/fastci/the_longing.py",
+      "command": "python3 /home/egork/Projects/py/fastci/examples/the_longing.py",
       "volumes": [
-        "/home/egork/Projects/py/fastci:/home/egork/Projects/py/fastci"
+        "/home/egork/Projects/py/fastci/examples:/home/egork/Projects/py/fastci/examples"
       ],
       "timeout_secs": 6
     },

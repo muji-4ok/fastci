@@ -1,4 +1,4 @@
-with open('/home/egork/Projects/py/fastci/beer_counter_data/amount') as f:
+with open('/home/egork/Projects/py/fastci/examples/beer_counter_data/amount') as f:
     amount = int(f.read())
 
 if amount == 0:
@@ -18,5 +18,5 @@ else:
     new_amount = amount - 1
 
 if amount != new_amount:
-    with open('/home/egork/Projects/py/fastci/beer_counter_data/amount', 'w') as f:
+    with open('/home/egork/Projects/py/fastci/examples/beer_counter_data/amount', 'w') as f:
         f.write(str(new_amount))

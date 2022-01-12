@@ -18,5 +18,5 @@
     ]
   },
   "setup_pipeline_dir": true,
-  "bind_workdir_from_host": "/home/egork/Projects/py/fastci"
+  "bind_workdir_from_host": "/home/egork/Projects/py/fastci/examples"
 }

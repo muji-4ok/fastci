@@ -1,4 +1,4 @@
-with open('/home/egork/Projects/py/fastci/steps_data/step_3_1.txt') as f:
+with open('/home/egork/Projects/py/fastci/examples/steps/steps_data/step_3_1.txt') as f:
     if f.read().strip() == 'Done!':
         print('Step 3_1 good!')
     else:
@@ -6,12 +6,12 @@ with open('/home/egork/Projects/py/fastci/steps_data/step_3_1.txt') as f:
         print('Aborting')
         exit(1)
 
-with open('/home/egork/Projects/py/fastci/steps_data/step_3_1.txt', 'w') as f:
+with open('/home/egork/Projects/py/fastci/examples/steps/steps_data/step_3_1.txt', 'w') as f:
     f.write('')
 
 print('Step 3_1 consumed')
 
-with open('/home/egork/Projects/py/fastci/steps_data/step_3_2.txt') as f:
+with open('/home/egork/Projects/py/fastci/examples/steps/steps_data/step_3_2.txt') as f:
     if f.read().strip() == 'Done!':
         print('Step 3_2 good!')
     else:
@@ -19,7 +19,7 @@ with open('/home/egork/Projects/py/fastci/steps_data/step_3_2.txt') as f:
         print('Aborting')
         exit(1)
 
-with open('/home/egork/Projects/py/fastci/steps_data/step_3_2.txt', 'w') as f:
+with open('/home/egork/Projects/py/fastci/examples/steps/steps_data/step_3_2.txt', 'w') as f:
     f.write('')
 
 print('Step 3_2 consumed')
