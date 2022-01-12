@@ -1,6 +1,6 @@
 import json
-import shutil
 import os
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -65,7 +65,7 @@ def setup_globals_beat(sender, **kwargs):
 
 
 def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optional[Path],
-                  work_dir_to_bind: Optional[Path]) -> int:
+                  work_dir_to_bind: Optional[Path], commit_hash: Optional[str], repo_url: Optional[str]) -> int:
     """
     Creates the container and an associated Job model
 
@@ -94,17 +94,26 @@ def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optiona
 
     if common_pipeline_dir is not None:
         # this uses str, not repr
-        # FIXME: check what happens when there are spaces in the path (if I care (I don't))
+        # FIXME: try to put spaces in path, see if I care
         volumes.append(f'{common_pipeline_dir.absolute()}:/fastci/pipeline')
 
     if work_dir_to_bind is not None:
         # this uses str, not repr
-        # FIXME: check what happens when there are spaces in the path (if I care (I don't))
+        # FIXME: try to put spaces in path, see if I care
         # WARN: must be absolute, the caller must check this
-        # @CopyPaste - keep in sync with bootstrap.py script
+        # @CopyPaste - keep in sync with basic_bootstrap.py script
         volumes.append(f'{work_dir_to_bind}:/fastci/workdir')
         volumes.append(f'{INTERNAL_DIR}:/fastci/internal:ro')
-        command = f'/fastci/internal/bootstrap.py {command}'
+        command = f'/fastci/internal/basic_bootstrap.py {command}'
+
+    if commit_hash is not None:
+        # then repo_url won't be None
+        volumes.append(f'{INTERNAL_DIR}:/fastci/internal:ro')
+
+        if repo_url.startswith('/'):
+            volumes.append(f'{repo_url}:{repo_url}:ro')
+
+        command = f'/fastci/internal/repo_bootstrap.py {repo_url} {commit_hash} {command}'
 
     container = docker_client.containers.create(image, command, detach=True, volumes=volumes)
     job = models.Job(name=name, pipeline=models.Pipeline.objects.get(pk=pipeline_id), container_id=container.id,
@@ -242,18 +251,36 @@ def create_pipeline_from_json(json_str: str) -> int:
     # TODO: we pass the json already, so maybe we can somehow tell celery not to serialize any more
     data = json.loads(json_str)
 
-    common_pipeline_dir = Path(tempfile.mkdtemp()) if data.get('setup_pipeline_dir', False) else None
     bind_workdir_from_host = Path(data['bind_workdir_from_host']) if 'bind_workdir_from_host' in data else None
-    assert bind_workdir_from_host.is_absolute(), 'bind_workdir_from_host must be absolute!'
 
-    pipeline = models.Pipeline(name=data['name'], tmp_dir=common_pipeline_dir)
+    if bind_workdir_from_host is not None:
+        assert bind_workdir_from_host.is_absolute(), 'bind_workdir_from_host must be absolute!'
+
+    assert ('commit_hash' in data) == ('repo_url' in data), 'Both commit_hash and repo_url are required!'
+
+    commit_hash = data.get('commit_hash')
+    repo_url = data.get('repo_url')
+
+    if commit_hash is not None:
+        assert bind_workdir_from_host is None, 'If pipeline is in repo mode, we can\'t bind a custom workdir, ' \
+                                               'working directory is set to be the root of the repository!'
+        assert not data.get('setup_pipeline_dir', False), 'If pipeline is in repo mode, there\'s no need to setup ' \
+                                                          'the pipeline dir, since the repository directory is ' \
+                                                          'shared for all jobs in the pipeline!'
+
+    # FIXME: if the function fails, we leak the tmpdir
+    common_pipeline_dir = Path(tempfile.mkdtemp()) if data.get('setup_pipeline_dir', False) \
+                                                      or commit_hash is not None else None
+
+    pipeline = models.Pipeline(name=data['name'], tmp_dir=common_pipeline_dir, commit_hash=commit_hash,
+                               repo_url=repo_url)
     pipeline.save()
 
     jobs_names = dict()
 
     for job_data in data['jobs']:
         job = models.Job.objects.get(pk=do_create_job(job_data, pipeline.pk, common_pipeline_dir,
-                                                      bind_workdir_from_host))
+                                                      bind_workdir_from_host, commit_hash, repo_url))
         # TODO: instead of asserting, return an error that can be parsed and understood
         assert job.name not in jobs_names, 'Names of jobs in a single pipeline must be unique!'
         jobs_names[job.name] = job

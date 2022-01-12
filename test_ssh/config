@@ -1,0 +1,2 @@
+Host 164.90.235.215
+    IdentityFile ~/.ssh/key_priv

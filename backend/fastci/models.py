@@ -35,6 +35,9 @@ class Pipeline(models.Model):
     # that's the max length of a filename in linux
     tmp_dir = models.CharField(max_length=4096, blank=True, null=True)
     cleaned_up = models.BooleanField(default=False)
+    commit_hash = models.CharField(max_length=40, validators=[RegexValidator(regex=r'[0-9a-fA-F]{40}')], null=True)
+    # could be a path to a directory, so we use the max length of a filename in linux just in case
+    repo_url = models.CharField(max_length=4096, blank=True, null=True)
 
     # TODO:
     #   1) initiator
@@ -97,7 +100,7 @@ class Job(models.Model):
 class LightPipelineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pipeline
-        fields = ['id', 'name', 'status']
+        fields = ['id', 'name', 'status', 'commit_hash', 'repo_url']
 
 
 class CompleteJobSerializer(serializers.ModelSerializer):
@@ -132,7 +135,7 @@ class CompletePipelineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pipeline
-        fields = ['id', 'name', 'status', 'jobs', 'tmp_dir']
+        fields = ['id', 'name', 'status', 'jobs', 'tmp_dir', 'commit_hash', 'repo_url']
 
 
 class UserSerializer(serializers.ModelSerializer):

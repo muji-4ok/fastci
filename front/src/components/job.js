@@ -102,7 +102,8 @@ export default function JobPage() {
             `/pipeline/${jobData.pipeline.id}`),
         makeLinkInfoElement('Pipeline name', jobData.pipeline.name,
             `/pipeline/${jobData.pipeline.id}`),
-        // TODO: do we need to slice the id?
+        makeBasicInfoElement('Repo', jobData.pipeline.repo_url || 'None'),
+        makeBasicInfoElement('Commit', jobData.pipeline.commit_hash ? jobData.pipeline.commit_hash.slice(0, 7) : 'None'),
         makeBasicInfoElement('Container id', jobData.container_id ? jobData.container_id.slice(0, 12) : 'Cleaned up'),
         makeBasicInfoElement('Timeout (in secs)',
             jobData.timeout_secs?.toFixed(2) ?? 'None'),

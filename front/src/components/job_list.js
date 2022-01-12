@@ -49,7 +49,6 @@ export default function JobListPage() {
                     <Link to={`/pipeline/${job.pipeline.id}`}>{job.pipeline.name}</Link>
                 </td>
                 <td className={statusClass}>{statusDescription}</td>
-                {/* TODO: do we need to slice the id? */}
                 <td>{job.container_id ? job.container_id.slice(0, 12) : 'Cleaned up'}</td>
                 <td>{job.uptime_secs.toFixed(2)}</td>
                 <td>

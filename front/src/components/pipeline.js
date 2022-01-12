@@ -16,6 +16,8 @@ export default function PipelinePage() {
     let [name, setName] = React.useState('');
     let [statusId, setStatusId] = React.useState(0);
     let [tmpDir, setTmpDir] = React.useState('');
+    let [commitHash, setCommitHash] = React.useState('');
+    let [repoUrl, setRepoUrl] = React.useState('');
     let [stages, setStages] = React.useState([]);
     let [nodeDimensions, setNodeDimensions] = React.useState({});
 
@@ -32,6 +34,8 @@ export default function PipelinePage() {
         setName(transformedData.name);
         setStatusId(transformedData.status);
         setTmpDir(transformedData.tmp_dir);
+        setCommitHash(transformedData.commit_hash);
+        setRepoUrl(transformedData.repo_url);
         setStages(topologicalSort(transformToChildrenGraph(transformedData.jobs)));
     }, [id]);
 
@@ -131,6 +135,14 @@ export default function PipelinePage() {
                 <div>
                     <label>Tmp dir</label>
                     <label>{tmpDir || 'None'}</label>
+                </div>
+                <div>
+                    <label>Repo</label>
+                    <label>{repoUrl || 'None'}</label>
+                </div>
+                <div>
+                    <label>Commit</label>
+                    <label>{commitHash ? commitHash.slice(0, 7) : 'None'}</label>
                 </div>
                 <div>
                     <label>Actions</label>

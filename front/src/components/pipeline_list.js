@@ -109,6 +109,8 @@ export default function PipelineListPage() {
                         {stagesElements}
                     </div>
                 </td>
+                <td>{pipeline.repo_url || 'None'}</td>
+                <td>{pipeline.commit_hash ? pipeline.commit_hash.slice(0, 7) : 'None'}</td>
                 <td>
                     <ActionWithTooltip
                         onClick={updatePipeline.bind(null, pipeline.id)}
@@ -139,6 +141,8 @@ export default function PipelineListPage() {
                     <th>Name</th>
                     <th>Status</th>
                     <th>Jobs</th>
+                    <th>Repo</th>
+                    <th>Commit</th>
                     <th>Actions</th>
                 </tr>
                 </thead>
