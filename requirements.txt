@@ -1,0 +1,8 @@
+celery
+channels-redis
+channels
+django-cors-headers
+Django
+djangorestframework-simplejwt
+djangorestframework
+docker
