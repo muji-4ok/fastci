@@ -1,0 +1,12 @@
+{
+  "name": "helpful_pipeline_remote",
+  "jobs": [
+    {
+      "name": "say_encouragements",
+      "image": "ubuntu-test",
+      "command": "fastci_pipelines/helpful_script.sh"
+    }
+  ],
+  "commit_hash": "cd611093bcb3f9835ed4cbd08cc74c66ec2d77af",
+  "repo_url": "git@164.90.235.215:/home/git/project.git"
+}
