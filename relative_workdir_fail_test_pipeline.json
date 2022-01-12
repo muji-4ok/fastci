@@ -1,0 +1,22 @@
+{
+  "name": "relative_workdir_fail_test_pipeline",
+  "jobs": [
+    {
+      "name": "write_something",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/pipeline_dir_writer.py"
+    },
+    {
+      "name": "read_something",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/pipeline_dir_reader.py"
+    }
+  ],
+  "parents": {
+    "read_something": [
+      "write_something"
+    ]
+  },
+  "setup_pipeline_dir": true,
+  "bind_workdir_from_host": "."
+}

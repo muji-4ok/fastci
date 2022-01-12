@@ -62,7 +62,8 @@ def setup_globals_beat(sender, **kwargs):
     init_clients()
 
 
-def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optional[Path]) -> int:
+def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optional[Path],
+                  work_dir_to_bind: Optional[Path]) -> int:
     """
     Creates the container and an associated Job model
 
@@ -91,8 +92,14 @@ def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optiona
 
     if common_pipeline_dir is not None:
         # this uses str, not repr
-        # FIXME: check what happens when there are spaces in the path
+        # FIXME: check what happens when there are spaces in the path (if I care (I don't))
         volumes.append(f'{common_pipeline_dir.absolute()}:/pipeline')
+
+    if work_dir_to_bind is not None:
+        # this uses str, not repr
+        # FIXME: check what happens when there are spaces in the path (if I care (I don't))
+        # WARN: must be absolute, the caller must check this
+        volumes.append(f'{work_dir_to_bind}:/workdir')
 
     container = docker_client.containers.create(image, command, detach=True, volumes=volumes)
     job = models.Job(name=name, pipeline=models.Pipeline.objects.get(pk=pipeline_id), container_id=container.id,
@@ -228,6 +235,8 @@ def create_pipeline_from_json(json_str: str) -> int:
     data = json.loads(json_str)
 
     common_pipeline_dir = Path(tempfile.mkdtemp()) if data.get('setup_pipeline_dir', False) else None
+    bind_workdir_from_host = Path(data['bind_workdir_from_host']) if 'bind_workdir_from_host' in data else None
+    assert bind_workdir_from_host.is_absolute(), 'bind_workdir_from_host must be absolute!'
 
     pipeline = models.Pipeline(name=data['name'], tmp_dir=common_pipeline_dir)
     pipeline.save()
@@ -235,8 +244,8 @@ def create_pipeline_from_json(json_str: str) -> int:
     jobs_names = dict()
 
     for job_data in data['jobs']:
-        job = models.Job.objects.get(pk=do_create_job(job_data, pipeline_id=pipeline.pk,
-                                                      common_pipeline_dir=common_pipeline_dir))
+        job = models.Job.objects.get(pk=do_create_job(job_data, pipeline.pk, common_pipeline_dir,
+                                                      bind_workdir_from_host))
         # TODO: instead of asserting, return an error that can be parsed and understood
         assert job.name not in jobs_names, 'Names of jobs in a single pipeline must be unique!'
         jobs_names[job.name] = job
