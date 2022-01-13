@@ -1,0 +1,6 @@
+FROM ubuntu:latest
+
+RUN apt-get update -y && apt-get upgrade -y && apt-get install -y vim git \
+    crossbuild-essential-arm64 qemu-user
+
+COPY ./test_ssh /root/.ssh
