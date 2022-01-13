@@ -45,9 +45,10 @@ class DockerJob:
     def get_exit_code(self) -> int:
         return self.container.attrs['State']['ExitCode']
 
-    def get_output(self, stdout: bool = True, stderr: bool = True) -> bytes:
+    def get_output(self) -> bytes:
         # FIXME: very inefficient
-        return self.container.attach(stdout=stdout, stderr=stderr, logs=True)
+        # Using logs because attach sometimes doesn't work for some reason...
+        return self.container.logs()
 
     def start(self):
         self.status = models.JobStatus.RUNNING
