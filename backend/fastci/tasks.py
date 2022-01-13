@@ -136,9 +136,10 @@ def do_clean_up_pipeline(pipeline: models.Pipeline):
     assert pipeline.status != models.PipelineStatus.RUNNING and pipeline.status != models.PipelineStatus.NOT_STARTED, \
         'Attempting to clean up an unfinished pipeline!'
 
-    if pipeline.tmp_dir is not None:
+    if pipeline.tmp_dir is not None and Path(pipeline.tmp_dir).exists():
         shutil.rmtree(pipeline.tmp_dir)
-        pipeline.tmp_dir = None
+
+    pipeline.tmp_dir = None
 
     pipeline.cleaned_up = True
     pipeline.save()
