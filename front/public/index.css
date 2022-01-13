@@ -297,11 +297,6 @@ html, body {
     text-align: left;
 }
 
-.pipeline_list_stages_box {
-    display: grid;
-    grid: auto-flow dense / repeat(8, 1fr);
-}
-
 .job_link {
     display: flex;
     flex-direction: row;
@@ -379,6 +374,7 @@ html, body {
  */
 .pipeline_list_dropdown_container {
     position: relative;
+    display: inline-block;
 }
 
 .pipeline_list_dropdown_container > button {

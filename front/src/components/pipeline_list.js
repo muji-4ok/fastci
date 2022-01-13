@@ -9,7 +9,7 @@ import {cancelPipeline, updatePipeline} from "../utils/action_api";
 import RequiresLogin from "./requires_login";
 import PipelineCreatePage from "./pipeline_create";
 import JobLink from "./job_link";
-import {PAGE_SIZE, ListPaginator} from "./list_paginator";
+import {ListPaginator, PAGE_SIZE} from "./list_paginator";
 
 export default function PipelineListPage() {
     // TODO: @Speed - redrawing **everything** on each button click is very slow
@@ -103,12 +103,7 @@ export default function PipelineListPage() {
                     <Link to={`/pipeline/${pipeline.id}`}>{pipeline.name}</Link>
                 </td>
                 <td className={statusClass}>{statusDescription}</td>
-                <td>
-                    {/* TODO: deal with overflow */}
-                    <div className='pipeline_list_stages_box'>
-                        {stagesElements}
-                    </div>
-                </td>
+                <td>{stagesElements}</td>
                 <td>{pipeline.repo_url || 'None'}</td>
                 <td>{pipeline.commit_hash ? pipeline.commit_hash.slice(0, 7) : 'None'}</td>
                 <td>
