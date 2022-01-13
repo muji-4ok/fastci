@@ -2,7 +2,7 @@ FROM ubuntu:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update -y && apt-get upgrade -y && apt-get install -y vim git \
+RUN apt-get update -y && apt-get upgrade -y && apt-get install -y python3 vim git \
     crossbuild-essential-arm64 qemu-user
 
 COPY ./test_ssh /root/.ssh
