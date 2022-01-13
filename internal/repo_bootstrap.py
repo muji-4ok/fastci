@@ -18,8 +18,11 @@ print('Commit hash:', commit_hash)
 print('Target argv:', target_argv)
 
 if not SENTINEL_FILE.exists():
+    SENTINEL_FILE.touch()
     subprocess.run(f'git clone {repo_url} {REPO_DIR}', shell=True, check=True)
     os.chdir(REPO_DIR)
     subprocess.run(f'git reset --hard {commit_hash}', shell=True, check=True)
+else:
+    os.chdir(REPO_DIR)
 
 os.execvp(target_argv[0], target_argv)
