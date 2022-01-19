@@ -61,8 +61,7 @@ class CreateUserViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 @permission_classes([IsAuthenticated])
 @transaction.atomic
 def update_job_view(request: Request, job_id: int) -> Response:
-    # TODO: handle errors
-    tasks.update_job.delay(job_id)
+    tasks.update_job.delay(job_id).get()
     return Response()
 
 
@@ -75,26 +74,21 @@ def current_user_view(request: Request) -> Response:
 @api_view()
 @permission_classes([IsAuthenticated])
 def cancel_job_view(request: Request, job_id: int) -> Response:
-    # TODO: handle errors
-    tasks.cancel_job.delay(job_id)
+    tasks.cancel_job.delay(job_id).get()
     return Response()
 
 
 @api_view()
 @permission_classes([IsAuthenticated])
 def cancel_pipeline_view(request: Request, pipeline_id: int) -> Response:
-    # TODO: handle errors
-    # TODO: maybe wait for the task's result and send some reply?
-    tasks.cancel_pipeline.delay(pipeline_id)
+    tasks.cancel_pipeline.delay(pipeline_id).get()
     return Response()
 
 
 @api_view()
 @permission_classes([IsAuthenticated])
 def update_pipeline_view(request: Request, pipeline_id: int) -> Response:
-    # TODO: handle errors
-    # TODO: maybe wait for the task's result and send some reply?
-    tasks.step_pipeline.delay(pipeline_id)
+    tasks.step_pipeline.delay(pipeline_id).get()
     return Response()
 
 
@@ -102,6 +96,5 @@ def update_pipeline_view(request: Request, pipeline_id: int) -> Response:
 @parser_classes([JSONParser])
 @permission_classes([IsAuthenticated])
 def create_pipeline_view(request: Request) -> Response:
-    # TODO: handle errors
-    tasks.create_pipeline_from_json.delay(json.dumps(request.data))
+    tasks.create_pipeline_from_json.delay(json.dumps(request.data)).get()
     return Response()

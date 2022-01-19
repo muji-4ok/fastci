@@ -18,6 +18,7 @@ import django
 
 django.setup()
 
+from rest_framework.exceptions import ValidationError
 from django.db import transaction, DatabaseError
 from django.db.models import Q
 from . import models
@@ -72,19 +73,20 @@ def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optiona
     Returns:
         The created Job model
     """
-    # TODO: make a dedicated error type instead of doing asserts
-    assert 'image' in job_data and 'command' in job_data and 'name' in job_data, \
-        'image, command and name fields are required!'
+    if 'image' not in job_data or 'command' not in job_data or 'name' not in job_data:
+        raise ValidationError({field: 'Field required' for field in ('image', 'command', 'name')
+                               if field not in job_data})
 
     if 'timeout_secs' in job_data:
         try:
             float(job_data['timeout_secs'])
         except ValueError:
-            assert False, 'timeout_secs must be convertable to float!'
+            raise ValidationError({'timeout_secs': 'Must be convertible to float'})
 
     if 'volumes' in job_data:
-        assert isinstance(job_data['volumes'], list) and all(isinstance(volume, str) for volume
-                                                             in job_data['volumes']), 'volumes must be a list of str!'
+        if not isinstance(job_data['volumes'], list) or not all(isinstance(volume, str) for volume
+                                                                in job_data['volumes']):
+            raise ValidationError({'volumes': 'Must be a list of str'})
 
     name = job_data['name']
     image = job_data['image']
@@ -255,19 +257,27 @@ def create_pipeline_from_json(json_str: str) -> int:
     bind_workdir_from_host = Path(data['bind_workdir_from_host']) if 'bind_workdir_from_host' in data else None
 
     if bind_workdir_from_host is not None:
-        assert bind_workdir_from_host.is_absolute(), 'bind_workdir_from_host must be absolute!'
+        if not bind_workdir_from_host.is_absolute():
+            raise ValidationError({'bind_workdir_from_host': 'must be absolute'})
 
-    assert ('commit_hash' in data) == ('repo_url' in data), 'Both commit_hash and repo_url are required!'
+    if 'commit_hash' in data and 'repo_url' not in data:
+        raise ValidationError({'repo_url': 'Also required'})
+
+    if 'commit_hash' not in data and 'repo_url' in data:
+        raise ValidationError({'commit_hash': 'Also required'})
 
     commit_hash = data.get('commit_hash')
     repo_url = data.get('repo_url')
 
     if commit_hash is not None:
-        assert bind_workdir_from_host is None, 'If pipeline is in repo mode, we can\'t bind a custom workdir, ' \
-                                               'working directory is set to be the root of the repository!'
-        assert not data.get('setup_pipeline_dir', False), 'If pipeline is in repo mode, there\'s no need to setup ' \
-                                                          'the pipeline dir, since the repository directory is ' \
-                                                          'shared for all jobs in the pipeline!'
+        if bind_workdir_from_host is not None:
+            raise ValidationError({'bind_workdir_from_host': 'If pipeline is in repo mode, we can\'t bind a '
+                                                             'custom workdir, working directory is set to be the '
+                                                             'root of the repository!'})
+        if data.get('setup_pipeline_dir', False):
+            raise ValidationError({'setup_pipeline_dir': 'If pipeline is in repo mode, there\'s no need to setup the '
+                                                         'pipeline dir, sincethe repository directory is shared for '
+                                                         'all jobs in the pipeline!'})
 
     common_pipeline_dir = Path(tempfile.mkdtemp()) if data.get('setup_pipeline_dir', False) \
                                                       or commit_hash is not None else None
@@ -279,11 +289,16 @@ def create_pipeline_from_json(json_str: str) -> int:
 
         jobs_names = dict()
 
-        for job_data in data['jobs']:
-            job = do_create_job(job_data, pipeline.pk, common_pipeline_dir, bind_workdir_from_host, commit_hash,
-                                repo_url)
-            # TODO: instead of asserting, return an error that can be parsed and understood
-            assert job.name not in jobs_names, 'Names of jobs in a single pipeline must be unique!'
+        for i, job_data in enumerate(data['jobs']):
+            try:
+                job = do_create_job(job_data, pipeline.pk, common_pipeline_dir, bind_workdir_from_host, commit_hash,
+                                    repo_url)
+            except ValidationError as e:
+                raise ValidationError({f'job {i}': e.detail})
+
+            if job.name in jobs_names:
+                raise ValidationError({job.name: 'Names of jobs in a single pipeline must be unique'})
+
             jobs_names[job.name] = job
 
         if 'parents' in data:
@@ -292,7 +307,7 @@ def create_pipeline_from_json(json_str: str) -> int:
 
         for job in jobs_names.values():
             job.save()
-    except (DatabaseError, AssertionError):
+    except (DatabaseError, ValidationError):
         os.rmdir(common_pipeline_dir)
         raise
 

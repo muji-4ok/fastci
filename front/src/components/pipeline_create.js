@@ -33,7 +33,12 @@ export default function PipelineCreatePage() {
             setError('\u200b');
         } else if (response.status === 400) {
             let responseData = await response.json();
-            setError(responseData['detail']);
+
+            if ('detail' in responseData) {
+                setError(responseData['detail']);
+            } else {
+                setError(JSON.stringify(responseData));
+            }
         } else {
             console.log(response);
             setError('Failed to call api');

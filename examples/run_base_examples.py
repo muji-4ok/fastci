@@ -22,4 +22,4 @@ for pipeline_filename in pipeline_filenames:
     with open(DATA_DIR / pipeline_filename) as f:
         config = f.read()
 
-    fastci.tasks.create_pipeline_from_json.delay(config)
+    fastci.tasks.create_pipeline_from_json.delay(config).forget()
