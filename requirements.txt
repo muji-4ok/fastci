@@ -6,3 +6,4 @@ Django
 djangorestframework-simplejwt
 djangorestframework
 docker
+redis
