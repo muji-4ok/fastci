@@ -81,7 +81,7 @@ class DockerJob:
         if self.status == models.JobStatus.FINISHED:
             self.job_model.exit_code = self.get_exit_code()
 
-        # TODO: Maybe not actually needed, but for safety we do this
+        # Do this just in case
         self.job_model.full_clean()
 
         self.job_model.save()
@@ -90,7 +90,7 @@ class DockerJob:
         if self.status == models.JobStatus.FAILED_TO_START or self.status == models.JobStatus.NOT_STARTED:
             return 0
 
-        # FIXME: this is shit, but I don't want to deal with timezones
+        # This whole thing is shit, but I don't want to deal with timezones @Robustness
         finished_time = docker_timestamp_to_seconds(self.container.attrs['State']['FinishedAt'])
 
         if finished_time != 0:
