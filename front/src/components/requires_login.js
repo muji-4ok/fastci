@@ -10,6 +10,7 @@ export default function RequiresLogin(props) {
 
     React.useEffect(() => {
         fetchResponseFromGetApi('fastci/api/current_user').then((response) => {
+            // TODO: make a toast?
             if (response === null) {
                 navigate('/login', {from: location});
             }
