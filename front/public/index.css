@@ -10,6 +10,10 @@ html, body {
     flex-direction: column;
 }
 
+* {
+    box-sizing: border-box;
+}
+
 .menu {
     flex: 0 0 40px;
     display: flex;
@@ -234,13 +238,18 @@ html, body {
     max-width: 250px;
 }
 
+/* Cus I have no clue in which order the list is */
+/*noinspection CssReplaceWithShorthandSafely*/
 .pipeline_job_graph_box {
     display: flex;
     overflow: auto;
     position: relative;
-    /* We add padding so the tooltip for buttons won't cause the scroll area to change */
-    padding-bottom: 15px;
+    /* This just looks better */
+    padding-top: 10px;
+    padding-left: 10px;
+    /* Add padding on right and bottom so the tooltip doesn't force the scrollbar to extend */
     padding-right: 15px;
+    padding-bottom: 25px;
 }
 
 /* Proxy */
@@ -260,6 +269,7 @@ html, body {
     flex: 0 0 auto;
     display: flex;
     flex-direction: column;
+    gap: 20px;
 }
 
 /* Blank space */
@@ -285,9 +295,8 @@ html, body {
 
 .pipeline_graph_node {
     padding: 5px;
-    margin: 5px 5px 15px;
+    height: 40px;
     border-radius: 5px;
-    height: 20px;
     border-style: solid;
     /* Border width 5px actually shows up as 4.66666667 */
     border-width: 4px;
@@ -295,6 +304,19 @@ html, body {
     background-color: white;
     white-space: nowrap;
     text-align: left;
+}
+
+div.pipeline_graph_node.highlighted_main {
+    background-color: rgba(255, 255, 0, 0.7);
+}
+
+div.pipeline_graph_node.highlighted_extra {
+    background-color: rgba(255, 255, 0, 0.4);
+}
+
+path.highlighted {
+    stroke: #e5e540;
+    stroke-width: 3;
 }
 
 .job_link {

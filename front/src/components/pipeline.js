@@ -9,6 +9,44 @@ import RequiresLogin from "./requires_login";
 import ActionWithTooltip from "./action_with_tooltip";
 import {cancelPipeline, updatePipeline} from "../utils/action_api";
 
+function onNodeMouseEnter(job, nodesRef) {
+    nodesRef.current[job.id]?.classList.add('highlighted_main');
+
+    for (const parent of job.parents) {
+        nodesRef.current[parent]?.classList.add('highlighted_extra');
+    }
+
+    for (const child of job.children) {
+        nodesRef.current[child.id]?.classList.add('highlighted_extra');
+    }
+
+    // We need to convert it to array since we are both mutating the HTMLCollection,
+    // which is live-updated, and iterating over it
+    let paths = Array.from(document.getElementsByClassName(`path_${job.id}`));
+    let svgOwner = paths[0]?.ownerSVGElement;
+
+    for (let path of paths) {
+        path.classList.add('highlighted');
+        svgOwner.appendChild(path);
+    }
+}
+
+function onNodeMouseLeave(job, nodesRef) {
+    nodesRef.current[job.id]?.classList.remove('highlighted_main');
+
+    for (const parent of job.parents) {
+        nodesRef.current[parent]?.classList.remove('highlighted_extra');
+    }
+
+    for (const child of job.children) {
+        nodesRef.current[child.id]?.classList.remove('highlighted_extra');
+    }
+
+    for (let path of document.getElementsByClassName(`path_${job.id}`)) {
+        path.classList.remove('highlighted');
+    }
+}
+
 export default function PipelinePage() {
     const params = useParams();
     const id = params.pipeline_id;
@@ -69,8 +107,12 @@ export default function PipelinePage() {
     for (const [i, stage] of Object.entries(stages)) {
         const jobNodes = stage.map((job, i) => {
             return (
-                <div className='pipeline_graph_node' key={i}
-                     ref={elem => nodesRef.current[job.id] = elem}>
+                <div
+                    className='pipeline_graph_node' key={i}
+                    ref={elem => nodesRef.current[job.id] = elem}
+                    onMouseEnter={onNodeMouseEnter.bind(null, job, nodesRef)}
+                    onMouseLeave={onNodeMouseLeave.bind(null, job, nodesRef)}
+                >
                     <JobLink job={job}/>
                 </div>
             );
@@ -84,33 +126,68 @@ export default function PipelinePage() {
             graphSegments.push(<div key={`${i}_blank`}/>);
         }
 
+        // FIXME: bug - connections are drawn incorrectly on first load - try to reaload everything
+        //        to reproduce
         for (const from of stage) {
             for (const to of from.children) {
                 if (!(from.id in nodeDimensions && to.id in nodeDimensions)) {
                     continue;
                 }
 
+                const horizontalGap = 50;
+                const verticalGap = 20;
+                // Set to this constant in css
+                const height = 40;
+
                 const fromDims = nodeDimensions[from.id];
                 const toDims = nodeDimensions[to.id];
 
                 const fromX = fromDims.left + fromDims.width;
-                const fromY = fromDims.top + fromDims.height / 2;
+                const fromY = fromDims.top + height / 2;
 
                 const toX = toDims.left;
                 const toY = toDims.top + toDims.height / 2;
 
-                const midX = (fromX + toX) / 2;
+                const to1X = fromX + horizontalGap;
+                const to1Y = toY + (to.stageIdx !== from.stageIdx + 1) * Math.sign(from.idxInStage - to.idxInStage) * (verticalGap / 2 + height / 2);
 
                 edgePaths.push(
                     <path
-                        key={`${from.id}_${to.id}`}
+                        key={`${from.id}_${to.id}_1`}
+                        className={`path_${from.id} path_${to.id}`}
                         stroke='#5f8ed2c7'
                         fill='none'
                         strokeWidth={2}
-                        markerEnd='url(#triangle)'
-                        d={`M ${fromX} ${fromY} C ${midX} ${fromY} ${midX} ${toY} ${toX} ${toY}`}
+                        d={`M ${fromX} ${fromY} C ${to1X} ${fromY} ${fromX} ${to1Y} ${to1X} ${to1Y}`}
                     />
                 );
+
+                if (to.stageIdx !== from.stageIdx + 1) {
+                    edgePaths.push(
+                        <path
+                            key={`${from.id}_${to.id}_2`}
+                            className={`path_${from.id} path_${to.id}`}
+                            stroke='#5f8ed2c7'
+                            fill='none'
+                            strokeWidth={2}
+                            d={`M ${to1X} ${to1Y} H ${toDims.left - horizontalGap}`}
+                        />
+                    );
+
+                    const from2X = toDims.left - horizontalGap;
+                    const from2Y = to1Y;
+
+                    edgePaths.push(
+                        <path
+                            key={`${from.id}_${to.id}_3`}
+                            className={`path_${from.id} path_${to.id}`}
+                            stroke='#5f8ed2c7'
+                            fill='none'
+                            strokeWidth={2}
+                            d={`M ${from2X} ${from2Y} C ${toX} ${from2Y} ${from2X} ${toY} ${toX} ${toY}`}
+                        />
+                    );
+                }
             }
         }
     }

@@ -82,6 +82,10 @@ export function topologicalSort(nodes) {
         } else {
             groupedResult[nodeDepth[node.id]].push(node);
         }
+
+        // Used in pipeline graph drawing
+        node.stageIdx = nodeDepth[node.id];
+        node.idxInStage = groupedResult[nodeDepth[node.id]].length - 1;
     }
 
     return groupedResult;
