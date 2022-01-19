@@ -1,0 +1,22 @@
+{
+  "name": "common_dir_pipeline",
+  "jobs": [
+    {
+      "name": "write_something",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/examples/pipeline_dir_writer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/examples:/home/egork/Projects/py/fastci/examples"
+      ]
+    },
+    {
+      "name": "write_something",
+      "image": "ubuntu-test",
+      "command": "python3 /home/egork/Projects/py/fastci/examples/pipeline_dir_writer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/examples:/home/egork/Projects/py/fastci/examples"
+      ]
+    }
+  ],
+  "setup_pipeline_dir": true
+}

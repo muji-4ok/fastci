@@ -18,7 +18,7 @@ import django
 
 django.setup()
 
-from django.db import transaction
+from django.db import transaction, DatabaseError
 from django.db.models import Q
 from . import models
 from . import jobs
@@ -65,12 +65,12 @@ def setup_globals_beat(sender, **kwargs):
 
 
 def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optional[Path],
-                  work_dir_to_bind: Optional[Path], commit_hash: Optional[str], repo_url: Optional[str]) -> int:
+                  work_dir_to_bind: Optional[Path], commit_hash: Optional[str], repo_url: Optional[str]) -> models.Job:
     """
     Creates the container and an associated Job model
 
     Returns:
-        id of the created Job model
+        The created Job model
     """
     # TODO: make a dedicated error type instead of doing asserts
     assert 'image' in job_data and 'command' in job_data and 'name' in job_data, \
@@ -121,7 +121,7 @@ def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optiona
     job.full_clean()
     job.save()
 
-    return job.pk
+    return job
 
 
 def do_clean_up_job(job_model: models.Job):
@@ -269,30 +269,32 @@ def create_pipeline_from_json(json_str: str) -> int:
                                                           'the pipeline dir, since the repository directory is ' \
                                                           'shared for all jobs in the pipeline!'
 
-    # FIXME: if the function fails, we leak the tmpdir
     common_pipeline_dir = Path(tempfile.mkdtemp()) if data.get('setup_pipeline_dir', False) \
                                                       or commit_hash is not None else None
 
-    pipeline = models.Pipeline(name=data['name'], tmp_dir=common_pipeline_dir, commit_hash=commit_hash,
-                               repo_url=repo_url)
-    pipeline.save()
+    try:
+        pipeline = models.Pipeline(name=data['name'], tmp_dir=str(common_pipeline_dir), commit_hash=commit_hash,
+                                   repo_url=repo_url)
+        pipeline.save()
 
-    jobs_names = dict()
+        jobs_names = dict()
 
-    for job_data in data['jobs']:
-        job = models.Job.objects.get(pk=do_create_job(job_data, pipeline.pk, common_pipeline_dir,
-                                                      bind_workdir_from_host, commit_hash, repo_url))
-        # TODO: instead of asserting, return an error that can be parsed and understood
-        assert job.name not in jobs_names, 'Names of jobs in a single pipeline must be unique!'
-        jobs_names[job.name] = job
-        job.save()
+        for job_data in data['jobs']:
+            job = do_create_job(job_data, pipeline.pk, common_pipeline_dir, bind_workdir_from_host, commit_hash,
+                                repo_url)
+            # TODO: instead of asserting, return an error that can be parsed and understood
+            assert job.name not in jobs_names, 'Names of jobs in a single pipeline must be unique!'
+            jobs_names[job.name] = job
 
-    if 'parents' in data:
-        for child_name, parent_names in data['parents'].items():
-            jobs_names[child_name].parents.set([jobs_names[parent_name] for parent_name in parent_names])
+        if 'parents' in data:
+            for child_name, parent_names in data['parents'].items():
+                jobs_names[child_name].parents.set([jobs_names[parent_name] for parent_name in parent_names])
 
-    for job in jobs_names.values():
-        job.save()
+        for job in jobs_names.values():
+            job.save()
+    except (DatabaseError, AssertionError):
+        os.rmdir(common_pipeline_dir)
+        raise
 
     notify_of_change()
 
