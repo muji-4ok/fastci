@@ -7,6 +7,7 @@ from typing import Optional
 
 import celery
 import docker.errors
+import docker.models.containers
 import redis
 from celery.signals import worker_init, beat_init
 from celery.utils.log import get_task_logger
@@ -73,6 +74,9 @@ def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optiona
     Returns:
         The created Job model
     """
+    if not isinstance(job_data, dict):
+        raise ValidationError({'outer object': 'Must be a key-value object'})
+
     if 'image' not in job_data or 'command' not in job_data or 'name' not in job_data:
         raise ValidationError({field: 'Field required' for field in ('image', 'command', 'name')
                                if field not in job_data})
@@ -117,11 +121,17 @@ def do_create_job(job_data: dict, pipeline_id: int, common_pipeline_dir: Optiona
 
         command = f'/fastci/internal/repo_bootstrap.py {repo_url} {commit_hash} {command}'
 
+    container: docker.models.containers.Container
     container = docker_client.containers.create(image, command, detach=True, volumes=volumes)
-    job = models.Job(name=name, pipeline=models.Pipeline.objects.get(pk=pipeline_id), container_id=container.id,
-                     timeout_secs=timeout_secs)
-    job.full_clean()
-    job.save()
+
+    try:
+        job = models.Job(name=name, pipeline=models.Pipeline.objects.get(pk=pipeline_id), container_id=container.id,
+                         timeout_secs=timeout_secs)
+        job.full_clean()
+        job.save()
+    except DatabaseError:
+        container.remove()
+        raise
 
     return job
 
@@ -266,6 +276,9 @@ def create_pipeline_from_json(json_str: str) -> int:
     if 'commit_hash' not in data and 'repo_url' in data:
         raise ValidationError({'commit_hash': 'Also required'})
 
+    if 'jobs' not in data or not isinstance(data['jobs'], list) or len(data['jobs']) == 0:
+        raise ValidationError({'jobs': 'Must be a non-empty list'})
+
     commit_hash = data.get('commit_hash')
     repo_url = data.get('repo_url')
 
@@ -283,32 +296,45 @@ def create_pipeline_from_json(json_str: str) -> int:
                                                       or commit_hash is not None else None
 
     try:
-        pipeline = models.Pipeline(name=data['name'], tmp_dir=str(common_pipeline_dir), commit_hash=commit_hash,
+        pipeline = models.Pipeline(name=data['name'], tmp_dir=common_pipeline_dir, commit_hash=commit_hash,
                                    repo_url=repo_url)
         pipeline.save()
 
         jobs_names = dict()
 
-        for i, job_data in enumerate(data['jobs']):
-            try:
-                job = do_create_job(job_data, pipeline.pk, common_pipeline_dir, bind_workdir_from_host, commit_hash,
-                                    repo_url)
-            except ValidationError as e:
-                raise ValidationError({f'job {i}': e.detail})
+        # TODO: All of this try except is super ugly... And I have a feeling I'm using transactions incorrectly, but
+        #       right now I don't see how I can do better
+        try:
+            for i, job_data in enumerate(data['jobs']):
+                try:
+                    job = do_create_job(job_data, pipeline.pk, common_pipeline_dir, bind_workdir_from_host, commit_hash,
+                                        repo_url)
+                except ValidationError as e:
+                    raise ValidationError({f'job {i}': e.detail})
 
-            if job.name in jobs_names:
-                raise ValidationError({job.name: 'Names of jobs in a single pipeline must be unique'})
+                if job.name in jobs_names:
+                    # @Speed - do_clean_up_job does some useless database actions
+                    do_clean_up_job(job)
+                    raise ValidationError({job.name: 'Names of jobs in a single pipeline must be unique'})
 
-            jobs_names[job.name] = job
+                jobs_names[job.name] = job
 
-        if 'parents' in data:
-            for child_name, parent_names in data['parents'].items():
-                jobs_names[child_name].parents.set([jobs_names[parent_name] for parent_name in parent_names])
+            if 'parents' in data:
+                for child_name, parent_names in data['parents'].items():
+                    jobs_names[child_name].parents.set([jobs_names[parent_name] for parent_name in parent_names])
 
-        for job in jobs_names.values():
-            job.save()
+            for job in jobs_names.values():
+                job.save()
+        except (DatabaseError, ValidationError):
+            # @Speed - do_clean_up_job does some useless database actions
+            for job in jobs_names.values():
+                do_clean_up_job(job)
+
+            raise
     except (DatabaseError, ValidationError):
-        os.rmdir(common_pipeline_dir)
+        if common_pipeline_dir:
+            os.rmdir(common_pipeline_dir)
+
         raise
 
     notify_of_change()
@@ -326,7 +352,7 @@ def do_step_pipeline(pipeline: models.Pipeline) -> bool:
     # make sure we have non-zero amount of jobs
     assert jobs
 
-    # WARN: list comprehension is needed because all of steps must be ran
+    # WARN: list comprehension is needed because all steps must be run
     anything_changed = any([step_job(job) for job in jobs])
 
     if all(job.is_complete() for job in jobs):
@@ -357,7 +383,7 @@ def step_pipelines():
     pipelines_to_step = models.Pipeline.objects.filter((Q(status=models.PipelineStatus.NOT_STARTED) |
                                                         Q(status=models.PipelineStatus.RUNNING)) & Q(cleaned_up=False))
 
-    # WARN: list comprehension is needed because all of steps must be ran
+    # WARN: list comprehension is needed because all the steps must be run
     if any([do_step_pipeline(pipeline) for pipeline in pipelines_to_step]):
         notify_of_change()
 
