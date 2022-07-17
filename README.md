@@ -2,10 +2,11 @@
 
 ### What is this?
 
-This project is meant to be a super lightweight CI system. I would argue that all a CI is a system
-to automatically run scripts in a reproducible environment. And a web interface to monitor and
-control the jobs is nice. This project is just that - the jobs are no more than docker containers,
-and you can set it up so that the pipelines are launched on each push to a git repository. 
+This project is meant to be a super lightweight CI system. I would argue that a CI is at its core
+just a system to automatically run scripts in a reproducible environment. And a web interface to
+monitor and control the jobs is nice. This project is just that - the jobs are no more than docker
+containers, and you can set it up so that the pipelines are launched on each push to a git
+repository.
 
 The features include:
 
