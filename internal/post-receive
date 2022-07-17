@@ -1,0 +1,43 @@
+#!/home/egork/PythonVenvs/FastCI/bin/python
+import os
+import subprocess
+import sys
+import json
+from pathlib import Path
+
+import django
+
+# Bruh, but it is what it is
+sys.path.append(str(Path(__file__).parent.parent.parent / 'backend'))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
+django.setup()
+
+import fastci.tasks
+
+
+def run_command(command: str) -> str:
+    return subprocess.run(command, shell=True, check=True, capture_output=True).stdout.decode('ascii')
+
+
+def git_list_dir(commit: str, path_to_dir: str) -> list[str]:
+    output = run_command(f'git ls-tree --name-only {commit}:{path_to_dir}')
+    return [line.strip() for line in output.split('\n') if line.strip()]
+
+
+def git_read_file(commit: str, path_to_file: str) -> str:
+    return run_command(f'git show {commit}:{path_to_file}')
+
+
+parent_commit, new_commit, branch_ref = input().split()
+print(f'Commit: {new_commit}')
+
+pipeline_filenames = [filename for filename in git_list_dir(new_commit, 'fastci_pipelines') if
+                      filename.endswith('pipeline.json')]
+print('Found pipelines:', *pipeline_filenames)
+
+for pipeline_filename in pipeline_filenames:
+    path = os.path.join('fastci_pipelines', pipeline_filename)
+    config = json.loads(git_read_file(new_commit, path))
+    config['commit_hash'] = new_commit
+    config['repo_url'] = str(Path.cwd())
+    fastci.tasks.create_pipeline_from_json.delay(json.dumps(config))
