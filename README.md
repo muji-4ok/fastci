@@ -65,14 +65,14 @@ To run anything you will need to create a json configuration of a pipeline, whic
 
 The syntax is this:
 
-```json
+```
 {
    "name": "<name of pipeline>",
    "jobs": [
       {
          "name": "<name of job>",
          "image": "<docker image tag of the job>",
-         "command": "<what command to run inside the container>,
+         "command": "<what command to run inside the container>",
          "volumes": [ # --- optional
             "<what volumes to additionally mount (i.e. argument of -v docker option)>",
             ...
