@@ -1,0 +1,22 @@
+{
+  "name": "job_params_fail_pipeline_3",
+  "jobs": [
+    {
+      "name": "write_something",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/pipeline_dir_writer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    },
+    {
+      "name": "write_something",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/pipeline_dir_writer.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    }
+  ],
+  "setup_pipeline_dir": true
+}

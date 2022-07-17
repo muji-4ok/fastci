@@ -1,0 +1,13 @@
+{
+  "name": "long_pipeline",
+  "jobs": [
+    {
+      "name": "wait",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/the_longing.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    }
+  ]
+}

@@ -4,9 +4,9 @@
     {
       "name": "wait",
       "image": "ubuntu-test",
-      "command": "python3 /home/egork/Projects/py/fastci/examples/the_longing.py",
+      "command": "python3 /workdir/the_longing.py",
       "volumes": [
-        "/home/egork/Projects/py/fastci/examples:/home/egork/Projects/py/fastci/examples"
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
       ],
       "timeout_secs": "fjslk"
     }

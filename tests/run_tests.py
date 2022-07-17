@@ -12,10 +12,9 @@ django.setup()
 
 import fastci.tasks
 
-DATA_DIR = Path(__file__).parent
+DATA_DIR = Path(__file__).parent / 'pipelines'
 
 pipeline_filenames = [filename for filename in os.listdir(DATA_DIR) if filename.endswith('pipeline.json')]
-pipeline_filenames.append('steps/steps_pipeline.json')
 print('Found pipelines:', *pipeline_filenames)
 
 for pipeline_filename in pipeline_filenames:

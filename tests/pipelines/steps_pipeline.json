@@ -1,0 +1,69 @@
+{
+  "name": "steps_pipeline",
+  "jobs": [
+    {
+      "name": "step_1_1",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/steps/step_1_1.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    },
+    {
+      "name": "step_1_2",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/steps/step_1_2.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    },
+    {
+      "name": "step_2",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/steps/step_2.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    },
+    {
+      "name": "step_3_1",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/steps/step_3_1.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    },
+    {
+      "name": "step_3_2",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/steps/step_3_2.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    },
+    {
+      "name": "step_4",
+      "image": "ubuntu-test",
+      "command": "python3 /workdir/steps/step_4.py",
+      "volumes": [
+        "/home/egork/Projects/py/fastci/tests/data:/workdir"
+      ]
+    }
+  ],
+  "parents": {
+    "step_2": [
+      "step_1_1",
+      "step_1_2"
+    ],
+    "step_3_1": [
+      "step_2"
+    ],
+    "step_3_2": [
+      "step_2"
+    ],
+    "step_4": [
+      "step_3_1",
+      "step_3_2"
+    ]
+  }
+}
